@@ -24,8 +24,9 @@ async function aiHivas(ai, feladat, maxToken) {
     torzs = { model: modell, max_tokens: maxToken, messages: [{ role: 'user', content: feladat }] };
   }
   let v;
-  try { v = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...fejlec }, body: JSON.stringify(torzs) }); }
-  catch { throw new Error('Nem érhető el az AI-szolgáltató (hálózati vagy CORS-hiba). Egyes szolgáltatók nem engedik a böngészős hívást.'); }
+  try { v = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...fejlec }, body: JSON.stringify(torzs), signal: AbortSignal.timeout(90000) }); }
+  catch (e) {
+    if (e.name === 'TimeoutError') throw new Error('Az AI 90 másodperc alatt sem válaszolt. Próbáld újra, vagy válassz gyorsabb modellt.'); throw new Error('Nem érhető el az AI-szolgáltató (hálózati vagy CORS-hiba). Egyes szolgáltatók nem engedik a böngészős hívást.'); }
   if (!v.ok) throw new Error(`AI hiba (${v.status}): ` + (await v.text()).slice(0, 200));
   const adat = await v.json();
   if (szolg === 'anthropic') return (adat.content || []).map(r => r.text || '').join('');
