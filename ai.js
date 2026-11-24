@@ -1,6 +1,6 @@
 'use strict';
 // AI-hívások közvetlenül a böngészőből (nincs szükség szerverre). A kulcs csak a böngészőből megy a szolgáltatóhoz.
-const ALAP_MODELL = { anthropic: 'claude-sonnet-5-5', openai: 'gpt-4o', gemini: 'gemini-2.0-flash', kompatibilis: '' };
+const ALAP_MODELL = { anthropic: 'claude-sonnet-5-5', openai: 'gpt-4o', gemini: 'gemini-3.8-flash', kompatibilis: '' };
 
 async function aiHivas(ai, feladat, maxToken) {
   const szolg = ai.szolgaltato;
