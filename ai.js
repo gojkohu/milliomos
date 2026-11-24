@@ -123,14 +123,32 @@ const SZINTEK = [
   { nev: 'nehéz és nagyon nehéz (a játék 11–15. kérdése, egyre nehezebben, az utolsó nagyon nehéz)', tol: 11 },
 ];
 
-function kerdesUtasitas(tema, szint, mar) {
+// Alterületek témánként: minden kéréshez véletlenszerűen választunk néhányat, hogy a kérdések ne ismétlődjenek.
+const ALTERULETEK = {
+  'Film': ['magyar film és filmesek', 'hollywoodi klasszikusok', 'animációs filmek', 'sci-fi és fantasy', 'horror és thriller', 'Oscar-díj és filmfesztiválok', 'rendezők', 'színészek és színésznők', 'filmzene', 'tévésorozatok', 'vígjátékok', 'történelmi és háborús filmek', 'szinkron és magyar tévé', 'mesefilmek', 'filmes idézetek és szereplők', 'különleges effektek és filmtörténet'],
+  'Sport': ['labdarúgás', 'olimpiai játékok', 'Forma-1 és motorsport', 'tenisz', 'kosárlabda', 'kézilabda és vízilabda', 'úszás', 'atlétika', 'téli sportok', 'magyar sportolók', 'kerékpározás és Tour de France', 'ökölvívás és küzdősportok', 'labdarúgó-világbajnokságok és Eb-k', 'sportszabályok és sportszerek', 'sportlétesítmények és csapatok', 'rekordok és érdekességek'],
+  'Általános műveltség': ['földrajz', 'világtörténelem', 'magyar történelem', 'természettudomány', 'magyar és világirodalom', 'zene és zeneszerzők', 'képzőművészet és építészet', 'nyelvek és szólások', 'gasztronómia', 'technika és találmányok', 'állatvilág és növények', 'mitológia és vallások', 'csillagászat', 'emberi test és egészség', 'hétköznapi tudás és mértékegységek', 'híres emberek'],
+  'Politika': ['magyar állami berendezkedés és intézmények', 'magyar történelem és államfők', 'Európai Unió', 'ENSZ és nemzetközi szervezetek', 'NATO és biztonságpolitika', 'államformák és politikai fogalmak', 'választási rendszerek', 'az Egyesült Államok politikai rendszere', 'történelmi politikai személyiségek', 'alkotmányok és jogi alapfogalmak', 'diplomácia és nemzetközi szerződések', 'világpolitikai fordulópontok'],
+};
+const KORABBI_KULCS = 'milliomos-korabbi';
+const normal = s => String(s).toLowerCase().replace(/[^a-z0-9áéíóöőúüű]+/g, ' ').trim();
+function korabbiOlvas(tema) { try { return (JSON.parse(localStorage.getItem(KORABBI_KULCS) || '{}')[tema] || []); } catch { return []; } }
+function korabbiMent(tema, lista) {
+  try { const mind = JSON.parse(localStorage.getItem(KORABBI_KULCS) || '{}'); mind[tema] = (mind[tema] || []).concat(lista).slice(-400); localStorage.setItem(KORABBI_KULCS, JSON.stringify(mind)); } catch { /* nincs tárhely */ }
+}
+const keverTomb = t => { t = t.slice(); for (let i = t.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [t[i], t[k]] = [t[k], t[i]]; } return t; };
+
+function kerdesUtasitas(tema, szint, mar, korabbi) {
   const politika = tema === 'Politika'
     ? ' Politika témában a kérdések tárgyilagosak és tényalapúak legyenek (intézmények, történelem, nemzetközi szervezetek, ismert események); semmilyen pártos, véleményes vagy vitatott állítás ne szerepeljen.'
     : '';
+  const agak = keverTomb(ALTERULETEK[tema] || []).slice(0, 5);
+  const tiltott = mar.concat(keverTomb(korabbi).slice(0, 60)).map(k => '"' + k.slice(0, 80) + '"');
   return `Készíts pontosan 5 magyar nyelvű feleletválasztós kvízkérdést a "${tema}" témában a "Legyen Ön is milliomos?" játékhoz.
 Nehézség: ${szint.nev}. A sorrendben egyre nehezebbek legyenek.
+${agak.length ? 'Ezekből az alterületekből válassz, mind az 5 kérdés más-más alterületről vagy témakörből szóljon: ' + agak.join('; ') + '.\n' : ''}Kerüld a közhelyes, mindenki által ismert "tankönyvi" példákat; a kérdések legyenek váratlanok és változatosak.
 Minden kérdésnek pontosan egy, egyértelműen igazolható helyes válasza legyen; kerüld a vitatott, időfüggő vagy bizonytalan tényeket. A rossz válaszok hihetőek legyenek, a válaszok rövidek.${politika}
-${mar.length ? 'Ezeket a kérdéseket NE ismételd: ' + mar.map(k => '"' + k + '"').join('; ') + '.\n' : ''}Véletlenszám a változatosságért: ${Math.floor(Math.random() * 1e6)}.
+${tiltott.length ? 'Ezeket a kérdéseket (vagy ezek közeli változatait) NE ismételd: ' + tiltott.join('; ') + '.\n' : ''}Véletlenszám a változatosságért: ${Math.floor(Math.random() * 1e6)}.
 Kizárólag JSON tömböt adj vissza, semmi mást (se magyarázatot, se kódblokkot), ebben a formában:
 [{"kerdes":"...","valaszok":["HELYES válasz","rossz 1","rossz 2","rossz 3"],"magyarazat":"egy mondat"}]
 A "valaszok" tömb ELSŐ eleme mindig a helyes válasz (a program keveri).`;
@@ -151,15 +169,15 @@ const reszTar = {}; // témánként a már megkapott részek (újraindításnál
 
 async function aiKerdesek(ai, tema, jelez) {
   aiVezerlo = new AbortController();
-  const osszes = [], tar = reszTar[tema] = reszTar[tema] || [];
+  const osszes = [], tar = reszTar[tema] = reszTar[tema] || [], korabbi = korabbiOlvas(tema), korabbiNorm = new Set(korabbi.map(normal));
   for (let r = 0; r < SZINTEK.length; r++) {
     if (tar[r]) { naplo(`${r + 1}. rész már megvan (előző próbálkozásból).`); osszes.push(...tar[r]); continue; }
     let reszek = [], utolso;
     for (let proba = 0; proba < 3 && reszek.length < 5; proba++) {
       jelez && jelez(r, proba);
       try {
-        const uj = kerdesLista(await aiHivas(ai, kerdesUtasitas(tema, SZINTEK[r], osszes.map(k => k.kerdes)), 2500))
-          .filter(k => !osszes.concat(reszek).some(m => m.kerdes === k.kerdes));
+        const uj = kerdesLista(await aiHivas(ai, kerdesUtasitas(tema, SZINTEK[r], osszes.map(k => k.kerdes), korabbi), 2500))
+          .filter(k => !osszes.concat(reszek).some(m => m.kerdes === k.kerdes) && !korabbiNorm.has(normal(k.kerdes)));
         reszek = reszek.concat(uj);
       } catch (e) { utolso = e; naplo('Hiba: ' + e.message.slice(0, 220)); if (e.message === 'Megszakítva.' || (e.message.startsWith('AI hiba (4') && !e.atmeneti)) throw e; }
     }
@@ -167,6 +185,7 @@ async function aiKerdesek(ai, tema, jelez) {
     tar[r] = reszek.slice(0, 5); osszes.push(...tar[r]);
   }
   delete reszTar[tema];
+  korabbiMent(tema, osszes.map(k => k.kerdes));
   return osszes;
 }
 
