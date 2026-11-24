@@ -24,10 +24,17 @@ async function aiHivas(ai, feladat, maxToken) {
     torzs = { model: modell, max_tokens: maxToken, messages: [{ role: 'user', content: feladat }] };
   }
   let v;
-  try { v = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...fejlec }, body: JSON.stringify(torzs), signal: AbortSignal.timeout(90000) }); }
-  catch (e) {
-    if (e.name === 'TimeoutError') throw new Error('Az AI 90 másodperc alatt sem válaszolt. Próbáld újra, vagy válassz gyorsabb modellt.'); throw new Error('Nem érhető el az AI-szolgáltató (hálózati vagy CORS-hiba). Egyes szolgáltatók nem engedik a böngészős hívást.'); }
-  if (!v.ok) throw new Error(`AI hiba (${v.status}): ` + (await v.text()).slice(0, 200));
+  for (let proba = 0; proba < 4; proba++) {
+    try { v = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...fejlec }, body: JSON.stringify(torzs), signal: AbortSignal.timeout(90000) }); }
+    catch (e) {
+      if (e.name === 'TimeoutError') throw new Error('Az AI 90 másodperc alatt sem válaszolt. Próbáld újra, vagy válassz gyorsabb modellt.');
+      throw new Error('Nem érhető el az AI-szolgáltató (hálózati vagy CORS-hiba). Egyes szolgáltatók nem engedik a böngészős hívást.');
+    }
+    // átmeneti túlterheltség: kis szünetekkel újrapróbáljuk (2, 4, 8 mp)
+    if ([429, 500, 502, 503, 529].includes(v.status) && proba < 3) { await new Promise(r => setTimeout(r, 2000 * 2 ** proba)); continue; }
+    break;
+  }
+  if (!v.ok) throw new Error(`AI hiba (${v.status}): ` + (await v.text()).slice(0, 200) + ([429, 503, 529].includes(v.status) ? ' – a szolgáltató most túlterhelt, próbáld újra egy perc múlva, vagy válassz másik modellt.' : ''));
   const adat = await v.json();
   if (szolg === 'anthropic') return (adat.content || []).map(r => r.text || '').join('');
   if (szolg === 'gemini') return ((adat.candidates || [])[0]?.content?.parts || []).map(r => r.text || '').join('');
