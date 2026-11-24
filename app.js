@@ -39,13 +39,13 @@ const HANG = { ok: [[523, .15], [659, .15], [784, .15], [1046, .4]], rossz: [[22
 
 // ---- kezdőképernyő ----
 function nehezSzintek(fo) {
-  let elozo = 0;
-  return ALAP_SZINTEK.map((v, i) => {
-    let x = v / 40000000 * fo;
-    if (i === ALAP_SZINTEK.length - 1) return fo;
-    if (x >= 10) { const p = Math.pow(10, Math.floor(Math.log10(x)) - 1); x = Math.round(x / p) * p; } else x = Math.max(1, Math.round(x));
-    elozo = Math.max(x, elozo + 1); return elozo;
-  });
+  // Klasszikus arányok; kis fődíjnál az arányok görbéjét addig lapítjuk (k kitevő), amíg a 15 kerekített szint szigorúan nő.
+  const kerekit = x => { if (x < 10) return Math.max(1, Math.round(x)); const p = Math.pow(10, Math.floor(Math.log10(x)) - 1); return Math.round(x / p) * p; };
+  for (let k = 1; k > 0; k -= .02) {
+    const s = ALAP_SZINTEK.map((v, i) => i === 14 ? fo : kerekit(fo * Math.pow(v / 40000000, k)));
+    if (s.every((x, i) => i === 0 ? x >= 1 : x > s[i - 1])) return s;
+  }
+  return ALAP_SZINTEK.map((_, i) => Math.max(1, Math.round(fo * (i + 1) / 15)));
 }
 const ELOSZTOK = { HUF: [10000000, 40000000, 100000000, 1000000000], EUR: [50000, 100000, 1000000] };
 const ALAP_FODIJ = { HUF: 40000000, EUR: 100000 };
@@ -76,7 +76,7 @@ document.addEventListener('click', e => {
   if (b.dataset.f) { be.fodij = Number(b.dataset.f); kezdoFrissit(); }
   if (b.dataset.s) { be.szolg = b.dataset.s; be.modell = ''; kezdoFrissit(); }
 });
-$('#fodij').addEventListener('input', e => { be.fodij = Math.max(0, Number(e.target.value) || 0); });
+$('#fodij').addEventListener('input', e => { be.fodij = Math.max(0, Math.round(Number(e.target.value) || 0)); });
 $('#kulcs').addEventListener('input', e => { be.kulcs = e.target.value.trim(); });
 $('#modell').addEventListener('input', e => { be.modell = e.target.value.trim(); });
 $('#alapurl').addEventListener('input', e => { be.alapUrl = e.target.value.trim(); });
@@ -92,7 +92,7 @@ const kever = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { con
 
 $('#inditas').addEventListener('click', async () => {
   $('#kezdo-hiba').textContent = '';
-  if (be.fodij < 1000) return $('#kezdo-hiba').textContent = 'A fődíj legyen legalább 1000.';
+  if (!(be.fodij >= 15)) return $('#kezdo-hiba').textContent = 'A fődíj legyen legalább 15 (a 15 szinthez egy-egy egység kell).';
   const s = SZOLGALTATOK[be.szolg];
   if (s.kulcs && be.szolg !== 'kompatibilis' && !be.kulcs) return $('#kezdo-hiba').textContent = 'Add meg az API-kulcsot, vagy válaszd a Demó módot.';
   mentBeallitas();
