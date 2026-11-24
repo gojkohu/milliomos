@@ -129,5 +129,7 @@ async function aiModellek(ai) {
   if (!/^https?:\/\//.test(alap)) throw new Error('Előbb add meg az alap URL-t.');
   const v = await fetch(alap + '/models', { headers: ai.kulcs ? { authorization: 'Bearer ' + ai.kulcs } : {} });
   if (!v.ok) throw new Error('Nem sikerült lekérni a modelleket (' + v.status + ').');
-  return ((await v.json()).data || []).map(m => m.id);
+  const ids = ((await v.json()).data || []).map(m => m.id);
+  // ingyenes (OpenRouter: ':free' végű) modellek előre
+  return ids.sort((x, y) => (/:free$/.test(y) ? 1 : 0) - (/:free$/.test(x) ? 1 : 0));
 }
