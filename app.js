@@ -101,7 +101,7 @@ async function api(utvonal, adat) {
 const kever = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [a[i], a[k]] = [a[k], a[i]]; } return a; };
 
 $('#inditas').addEventListener('click', async () => {
-  $('#kezdo-hiba').textContent = '';
+  $('#kezdo-hiba').textContent = ''; $('#kezdo-hiba').style.color = '';
   if (!(be.fodij >= 15)) return $('#kezdo-hiba').textContent = 'A fődíj legyen legalább 15 (a 15 szinthez egy-egy egység kell).';
   const s = SZOLGALTATOK[be.szolg];
   if (s.kulcs && be.szolg !== 'kompatibilis' && !be.kulcs) return $('#kezdo-hiba').textContent = 'Add meg az API-kulcsot, vagy válaszd a Demó módot.';
