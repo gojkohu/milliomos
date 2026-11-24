@@ -37,7 +37,7 @@ async function egyHivas(ai, modell, feladat, maxToken, probak) {
       throw new Error('Nem érhető el az AI-szolgáltató (hálózati vagy CORS-hiba). Egyes szolgáltatók nem engedik a böngészős hívást.');
     }
     naplo(`Válasz: HTTP ${v.status}, ${((Date.now() - t0) / 1000).toFixed(1)} mp`);
-    if (!v.ok) hibaSzoveg = await v.text();
+    if (!v.ok) { hibaSzoveg = await v.text(); const msg = (/"message"\s*:\s*"([^"]{0,230})/.exec(hibaSzoveg) || [])[1]; if (msg) naplo('  ↳ ' + msg.replace(/\\n/g, ' ')); }
     if (ATMENETI.includes(v.status) && proba < probak) {
       let varj = 2 * 2 ** proba;
       if (v.status === 429) {
