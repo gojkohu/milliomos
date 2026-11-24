@@ -96,3 +96,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 #naplo{font:1.1rem/1.5 Consolas,monospace;color:#bcd;background:#000a;border:.1rem solid #345;border-radius:.6rem;padding:.6rem 1rem;width:min(80rem,90%);max-height:14rem;overflow:auto;white-space:pre-wrap;margin:0}
 #naplo:empty{display:none}
+
+.kozonseg-racs{display:flex;gap:2.4rem;align-items:center;text-align:left}
+.qr{width:20rem;flex:none;background:#fff;padding:.4rem;border-radius:1rem}.qr svg{display:block;width:100%}
+.link{font-size:1.05rem;color:#aab3ff;word-break:break-all;max-width:36rem}
+.kerdes-kicsi{font-size:1.5rem;max-width:60rem;line-height:1.5}

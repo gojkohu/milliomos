@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Közönségszavazás</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 20%,#2430a8,#0b1470 50%,#030620);color:#fff;font-family:"Segoe UI",Arial,sans-serif;display:flex;flex-direction:column;align-items:center;padding:20px 16px;gap:16px}
+  h1{margin:0;font-size:22px;text-align:center;color:#e8c35a}
+  #uzenet{font-size:20px;text-align:center;min-height:56px}
+  #gombok{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:420px}
+  button{font:inherit;font-size:44px;font-weight:700;color:#fff;border:3px solid #e8c35a;border-radius:18px;padding:26px 0;background:linear-gradient(#2a3ad0,#0a1260)}
+  button.kivalasztott{background:linear-gradient(#ffb43a,#e07800);color:#000}
+  button:disabled{opacity:.45}
+  .kicsi{font-size:14px;color:#aab3ff;text-align:center}
+</style>
+</head>
+<body>
+<h1>Legyen Ön is milliomos?<br>Közönségszavazás</h1>
+<div id="uzenet">Kapcsolódás…</div>
+<div id="gombok"></div>
+<div class="kicsi" id="lab"></div>
+<script>
+'use strict';
+const P = new URLSearchParams(location.search), T = P.get('t') || '', NTFY = P.get('ntfy') || 'https://ntfy.sh';
+const $ = s => document.querySelector(s);
+let id; try { id = localStorage.getItem('milliomos-id'); if (!id) { id = Math.random().toString(36).slice(2, 12); localStorage.setItem('milliomos-id', id); } } catch { id = Math.random().toString(36).slice(2, 12); }
+let all = { nyitva: false, q: null, o: [] }, valasztott = null;
+
+function rajz() {
+  $('#gombok').innerHTML = all.o.map(b => `<button data-b="${b}" class="${b === valasztott ? 'kivalasztott' : ''}" ${all.nyitva ? '' : 'disabled'}>${b}</button>`).join('');
+  $('#uzenet').textContent = !all.q ? 'Várj, amíg a játékvezető elindítja a szavazást.'
+    : !all.nyitva ? (valasztott ? `A szavazás lezárult. A te szavazatod: ${valasztott}.` : 'A szavazás lezárult.')
+    : valasztott ? `Elküldve: ${valasztott} ✔ Módosíthatod, amíg a szavazás nyitva van.` : 'Szavazz! Melyik a helyes válasz?';
+}
+if (!/^milliomos-[a-z0-9]{8,32}$/.test(T)) { $('#uzenet').textContent = 'Érvénytelen szavazólink. Olvasd be újra a QR-kódot.'; }
+else {
+  rajz();
+  const es = new EventSource(`${NTFY}/${T}/sse?since=20m`);
+  es.onerror = () => { $('#lab').textContent = 'Kapcsolódási probléma – megpróbálom újra…'; };
+  es.onopen = () => { $('#lab').textContent = ''; };
+  es.onmessage = e => {
+    try {
+      const m = JSON.parse(JSON.parse(e.data).message);
+      if (m.t === 'nyit' && typeof m.q === 'string' && Array.isArray(m.o) && m.o.every(x => /^[A-D]$/.test(x))) {
+        if (m.q !== all.q) valasztott = null; all = { nyitva: true, q: m.q, o: m.o }; rajz();
+      } else if (m.t === 'zar' && m.q === all.q) { all.nyitva = false; rajz(); }
+    } catch {}
+  };
+  $('#gombok').addEventListener('click', async e => {
+    const b = e.target.closest('button'); if (!b || !all.nyitva) return;
+    const v = b.dataset.b;
+    try {
+      const r = await fetch(`${NTFY}/${T}`, { method: 'POST', body: JSON.stringify({ t: 'szav', q: all.q, id, v }) });
+      if (!r.ok) throw new Error(); valasztott = v; rajz();
+    } catch { $('#uzenet').textContent = 'Nem sikerült elküldeni, próbáld újra.'; }
+  });
+}
+</script>
+</body>
+</html>

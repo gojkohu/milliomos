@@ -191,7 +191,7 @@ $('#ujra').addEventListener('click', () => { kepernyo('kezdo'); kezdoFrissit(); 
 
 // ---- felugró ablak ----
 function ablak(html, zarhato = true) { $('#ablak-tartalom').innerHTML = html; $('#ablak-zar').hidden = !zarhato; $('#takaro').hidden = false; }
-function ablakZar() { clearInterval(j && j.idozito); $('#takaro').hidden = true; }
+function ablakZar() { clearInterval(j && j.idozito); if (j && j.szavazas) { j.szavazas.leallit(); j.szavazas = null; } $('#takaro').hidden = true; }
 $('#ablak-zar').addEventListener('click', ablakZar);
 
 // ---- segítségek ----
@@ -203,28 +203,56 @@ $('#seg-felezo').addEventListener('click', () => {
   if (j.kijelolt !== null && j.eltavolitott.includes(j.kijelolt)) { j.kijelolt = null; }
   hasznal('felezo');
 });
+// ---- telefonos segítség: valódi hívás, a program csak az időt méri ----
 $('#seg-telefon').addEventListener('click', () => {
-  const k = j.kerdesek[j.szint], marad = k.opciok.map((_, i) => i).filter(i => !j.eltavolitott.includes(i));
-  const jo = k.opciok.findIndex(o => o.helyes);
-  const pontos = Math.max(.35, .92 - j.szint * .04);
-  const tipp = Math.random() < pontos ? jo : kever(marad.filter(i => i !== jo))[0];
-  const biztos = tipp === jo ? Math.round(60 + Math.random() * 30) : Math.round(40 + Math.random() * 25);
-  const szovegek = [`Hmm, ezen el kell gondolkodnom… Szerintem a(z) <b>${BETUK[tipp]}</b>, kb. ${biztos}%-ig biztos vagyok benne.`, `Ezt nem tudom biztosan, de a megérzésem a(z) <b>${BETUK[tipp]}</b>. Kb. ${biztos}%.`, `Na, ezt hallottam valahol! A(z) <b>${BETUK[tipp]}</b> lesz az, ${biztos}%-ra tippelek.`];
+  const k = j.kerdesek[j.szint];
+  const marad = k.opciok.map((o, i) => i).filter(i => !j.eltavolitott.includes(i));
   hasznal('telefon');
   let mp = 30;
-  ablak(`<h2>☎ Telefonos segítség</h2><div class="ido" id="ido">${mp}</div><p class="nagy" id="bar-szoveg">A barátja a vonalban… (a játékmester olvassa fel a kérdést)</p>`);
-  j.idozito = setInterval(() => { mp--; $('#ido').textContent = mp; if (mp === 25) $('#bar-szoveg').innerHTML = szovegek[Math.floor(Math.random() * szovegek.length)]; if (mp <= 0) clearInterval(j.idozito); }, 1000);
+  ablak(`<h2>☎ Telefonos segítség</h2><p class="nagy">Hívja fel a barátját, és olvassa fel neki a kérdést!</p>
+    <div class="ido" id="ido">${mp}</div>
+    <div class="kerdes-kicsi"><b>${esc(k.kerdes)}</b><br>${marad.map(i => `${BETUK[i]}: ${esc(k.opciok[i].sz)}`).join(' &nbsp;·&nbsp; ')}</div>`);
+  j.idozito = setInterval(() => { mp--; $('#ido').textContent = mp > 0 ? mp : 'Lejárt az idő!'; if (mp === 5) hang(HANG.veg); if (mp <= 0) { clearInterval(j.idozito); hang(HANG.rossz); } }, 1000);
 });
-$('#seg-kozonseg').addEventListener('click', () => {
-  const k = j.kerdesek[j.szint], marad = k.opciok.map((_, i) => i).filter(i => !j.eltavolitott.includes(i));
+
+// ---- közönség segítsége: valódi szavazás QR-kóddal ----
+function oszlopok(szaz, k, marad) {
+  return `<div class="diagram">${marad.map(i => `<div class="oszlop"><em>${szaz[BETUK[i]]}%</em><div style="height:0" data-m="${szaz[BETUK[i]] * 1.6}%"></div><span>${BETUK[i]}</span></div>`).join('')}</div>`;
+}
+function szimulaltSzaz(k, marad) {
   const jo = k.opciok.findIndex(o => o.helyes);
   const joResz = Math.max(.3, .85 - j.szint * .04) + (Math.random() - .5) * .1;
   const rosszIdx = marad.filter(i => i !== jo), suly = rosszIdx.map(() => Math.random() + .2), ossz = suly.reduce((a, b) => a + b, 0);
-  const szaz = {}; szaz[jo] = Math.round(joResz * 100);
-  let maradt = 100 - szaz[jo]; rosszIdx.forEach((i, n) => { szaz[i] = n === rosszIdx.length - 1 ? maradt : Math.min(maradt, Math.round(suly[n] / ossz * (100 - szaz[jo]))); maradt -= szaz[i]; });
-  hasznal('kozonseg');
-  ablak(`<h2>👥 A közönség szavazata</h2><div class="diagram">${k.opciok.map((_, i) => szaz[i] === undefined ? '' : `<div class="oszlop"><em>${szaz[i]}%</em><div style="height:0" data-m="${szaz[i] * 1.6}%"></div><span>${BETUK[i]}</span></div>`).join('')}</div>`);
+  const szaz = {}; szaz[BETUK[jo]] = Math.round(joResz * 100);
+  let maradt = 100 - szaz[BETUK[jo]];
+  rosszIdx.forEach((i, n) => { szaz[BETUK[i]] = n === rosszIdx.length - 1 ? maradt : Math.min(maradt, Math.round(suly[n] / ossz * (100 - szaz[BETUK[jo]]))); maradt -= szaz[BETUK[i]]; });
+  return szaz;
+}
+function eredmenyAblak(szaz, k, marad, lab) {
+  ablak(`<h2>👥 A közönség szavazata</h2>${oszlopok(szaz, k, marad)}${lab ? `<p class="sugo">${lab}</p>` : ''}`);
   setTimeout(() => document.querySelectorAll('.oszlop div').forEach(d => d.style.height = d.dataset.m), 50);
+}
+$('#seg-kozonseg').addEventListener('click', () => {
+  const k = j.kerdesek[j.szint], marad = k.opciok.map((_, i) => i).filter(i => !j.eltavolitott.includes(i));
+  hasznal('kozonseg');
+  const sz = new Szavazas(marad.map(i => BETUK[i])); j.szavazas = sz;
+  const url = sz.url();
+  ablak(`<h2>👥 Szavazzon a közönség!</h2>
+    <div class="kozonseg-racs"><div class="qr">${qrSvg(url)}</div>
+      <div><p class="nagy">Olvassák be a QR-kódot a telefonjukkal, és szavazzanak!</p>
+        <p class="nagy"><b id="sz-db">0</b> szavazat érkezett</p>
+        <p class="sugo" id="sz-allapot">Kapcsolódás a szavazórendszerhez…</p>
+        <p class="link">${esc(url)}</p></div></div>
+    <div class="gombsor"><button id="sz-zar" class="nagy-gomb kicsi-gomb">Szavazás lezárása</button><button id="sz-szim" class="valaszto" style="font-size:1.1rem">Szimulált szavazás (ha nincs net)</button></div>`);
+  sz.onFrissit = n => { const e = $('#sz-db'); if (e) e.textContent = n; };
+  sz.onAllapot = a => { const e = $('#sz-allapot'); if (e) { e.textContent = a === 'kapcsolt' ? '✔ A szavazás nyitva.' : '⚠ Nincs kapcsolat a szavazórendszerrel – ellenőrizd az internetet.'; e.style.color = a === 'kapcsolt' ? '#9fe3a8' : '#ff8a8a'; } };
+  sz.indit();
+  $('#sz-zar').onclick = async () => {
+    const r = await sz.lezar(); j.szavazas = null;
+    if (!r.ossz) return ablak(`<h2>👥 Nem érkezett szavazat</h2><p class="nagy">Senki nem szavazott. Újra nem indítható, de a szimulált eredményt megkérheti:</p><button id="sz-szim2" class="nagy-gomb kicsi-gomb">Szimulált szavazás</button>`), $('#sz-szim2').addEventListener('click', () => eredmenyAblak(szimulaltSzaz(k, marad), k, marad, 'Szimulált eredmény.'));
+    hang(HANG.ok); eredmenyAblak(r.szaz, k, marad, `${r.ossz} szavazat alapján`);
+  };
+  $('#sz-szim').onclick = () => { sz.leallit(); j.szavazas = null; eredmenyAblak(szimulaltSzaz(k, marad), k, marad, 'Szimulált eredmény.'); };
 });
 
 // ---- forrás ellenőrzés ----
