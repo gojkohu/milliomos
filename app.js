@@ -79,6 +79,16 @@ document.addEventListener('click', e => {
 $('#fodij').addEventListener('input', e => { be.fodij = Math.max(0, Math.round(Number(e.target.value) || 0)); });
 $('#kulcs').addEventListener('input', e => { be.kulcs = e.target.value.trim(); });
 $('#modell').addEventListener('input', e => { be.modell = e.target.value.trim(); });
+$('#modellek-gomb').addEventListener('click', async () => {
+  const gomb = $('#modellek-gomb'); gomb.textContent = 'Lekérés…'; $('#kezdo-hiba').textContent = '';
+  try {
+    const lista = await aiModellek(aiAdat());
+    $('#modell-lista').innerHTML = lista.map(n => `<option value="${n}">`).join('');
+    $('#kezdo-hiba').textContent = lista.length + ' modell érhető el – kattints a Modell mezőre, és válassz a listából (a Flash és Lite típusok a gyorsak).';
+    $('#kezdo-hiba').style.color = '#9fe3a8';
+  } catch (e) { $('#kezdo-hiba').textContent = e.message; $('#kezdo-hiba').style.color = ''; }
+  gomb.textContent = 'Modellek lekérése';
+});
 $('#alapurl').addEventListener('input', e => { be.alapUrl = e.target.value.trim(); });
 
 function aiAdat() {

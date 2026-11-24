@@ -33,7 +33,9 @@
           <input id="kulcs" type="password" autocomplete="off" placeholder="a böngészőben marad, a lap bezárásakor törlődik">
         </label>
         <label class="mezo" id="modell-sor">Modell
-          <input id="modell" type="text" autocomplete="off">
+          <input id="modell" type="text" autocomplete="off" list="modell-lista">
+          <datalist id="modell-lista"></datalist>
+          <button type="button" class="valaszto" id="modellek-gomb" style="margin-top:.4rem;font-size:1.1rem">Modellek lekérése</button>
         </label>
         <label class="mezo" id="url-sor">Alap URL (pl. https://openrouter.ai/api/v1)
           <input id="alapurl" type="text" autocomplete="off">

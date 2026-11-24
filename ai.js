@@ -49,8 +49,9 @@ async function geminiTartalekok(kulcs, kiveve) {
       .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
       .map(m => m.name.replace(/^models\//, ''))
       .filter(n => /^gemini/.test(n) && !/(embed|image|tts|live|audio|vision|robotics|computer|customtools|exp)/.test(n) && n !== kiveve);
-    const pont = n => (/flash/.test(n) ? 0 : 10) + (/lite/.test(n) ? 1 : 0) + (/-latest$/.test(n) ? -2 : 0) + (/preview/.test(n) ? 3 : 0);
-    return nevek.sort((a, b) => pont(a) - pont(b)).slice(0, 4);
+    // stabil (nem preview) és lite modellek előre: azokra kisebb a roham
+    const pont = n => (/flash/.test(n) ? 0 : 10) + (/lite/.test(n) ? 0 : 2) + (/preview/.test(n) ? 6 : 0) + (/-latest$/.test(n) ? 1 : 0);
+    return nevek.sort((a, b) => pont(a) - pont(b)).slice(0, 6);
   } catch { return []; }
 }
 
@@ -63,12 +64,12 @@ async function aiHivas(ai, feladat, maxToken) {
   catch (e) {
     if (szolg !== 'gemini' || !e.atmeneti) throw e;
     // Gemini: a választott modell nem elérhető/túlterhelt – próbálunk másikat
-    let utolso = e;
+    const probalt = [modell];
     for (const m of await geminiTartalekok(ai.kulcs, modell)) {
       try { const sz = await egyHivas(ai, m, feladat, maxToken, 0); window.AI_HASZNALT = m; return sz; }
-      catch (e2) { if (!e2.atmeneti) throw e2; utolso = e2; }
+      catch (e2) { if (!e2.atmeneti) throw e2; probalt.push(m); }
     }
-    throw new Error(utolso.message + ' – a szolgáltató most túlterhelt, próbáld újra egy perc múlva, vagy írj be másik modellt.');
+    throw new Error('A Google modelljei most mind túlterheltek (kipróbálva: ' + probalt.join(', ') + '). Próbáld újra 1–2 perc múlva, vagy válassz modellt a „Modellek lekérése” gombbal.');
   }
 }
 
@@ -114,4 +115,19 @@ Kizárólag JSON-t adj vissza magyarul:
 Légy őszinte: ha nem vagy biztos, az ítélet "ketseges".`;
   const v = kinyer(await aiHivas(ai, feladat, 1200), '{', '}');
   return { itelet: ['megerositve', 'ketseges', 'hibas'].includes(v.itelet) ? v.itelet : 'ketseges', indoklas: v.indoklas || '', forrasok: Array.isArray(v.forrasok) ? v.forrasok.slice(0, 6) : [], megjegyzes: v.megjegyzes || '' };
+}
+
+// Elérhető modellek listája a kezdőképernyő választójához.
+async function aiModellek(ai) {
+  if (ai.szolgaltato === 'gemini') {
+    const v = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': ai.kulcs } });
+    if (!v.ok) throw new Error('Nem sikerült lekérni a modelleket (' + v.status + '). Ellenőrizd a kulcsot.');
+    return ((await v.json()).models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, '')).filter(n => /^gemini/.test(n));
+  }
+  const alap = ai.szolgaltato === 'openai' ? 'https://api.openai.com/v1' : String(ai.alapUrl || '').replace(/\/+$/, '');
+  if (ai.szolgaltato === 'anthropic') { const v = await fetch('https://api.anthropic.com/v1/models', { headers: { 'x-api-key': ai.kulcs, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } }); if (!v.ok) throw new Error('Nem sikerült lekérni a modelleket (' + v.status + ').'); return ((await v.json()).data || []).map(m => m.id); }
+  if (!/^https?:\/\//.test(alap)) throw new Error('Előbb add meg az alap URL-t.');
+  const v = await fetch(alap + '/models', { headers: ai.kulcs ? { authorization: 'Bearer ' + ai.kulcs } : {} });
+  if (!v.ok) throw new Error('Nem sikerült lekérni a modelleket (' + v.status + ').');
+  return ((await v.json()).data || []).map(m => m.id);
 }
