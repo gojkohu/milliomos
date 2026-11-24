@@ -95,7 +95,7 @@ function aiAdat() {
   return { szolgaltato: be.szolg, kulcs: be.kulcs, modell: be.modell, alapUrl: be.alapUrl };
 }
 async function api(utvonal, adat) {
-  if (utvonal === '/api/kerdesek') return { kerdesek: await aiKerdesek(adat.ai, adat.tema) };
+  if (utvonal === '/api/kerdesek') return { kerdesek: await aiKerdesek(adat.ai, adat.tema, (r, proba) => { $('.betoltes-szoveg').textContent = `Az AI összeállítja a kérdéseket… (${r + 1}/3. rész${proba ? ', újrapróbálás' : ''})`; }) };
   return aiForras(adat.ai, adat);
 }
 const kever = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [a[i], a[k]] = [a[k], a[i]]; } return a; };

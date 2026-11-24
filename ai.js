@@ -79,30 +79,52 @@ function kinyer(szoveg, nyito, zaro) {
   return JSON.parse(szoveg.slice(a, b + 1));
 }
 
-function kerdesUtasitas(tema) {
+const SZINTEK = [
+  { nev: 'nagyon könnyű (a játék 1–5. kérdése, bárki tudja)', tol: 1 },
+  { nev: 'közepes (a játék 6–10. kérdése, egy művelt ember tudja)', tol: 6 },
+  { nev: 'nehéz és nagyon nehéz (a játék 11–15. kérdése, egyre nehezebben, az utolsó nagyon nehéz)', tol: 11 },
+];
+
+function kerdesUtasitas(tema, szint, mar) {
   const politika = tema === 'Politika'
     ? ' Politika témában a kérdések tárgyilagosak és tényalapúak legyenek (intézmények, történelem, nemzetközi szervezetek, ismert események); semmilyen pártos, véleményes vagy vitatott állítás ne szerepeljen.'
     : '';
-  return `Készíts pontosan 15 magyar nyelvű feleletválasztós kvízkérdést a "${tema}" témában a "Legyen Ön is milliomos?" játékhoz.
-A nehézség folyamatosan nőjön: 1–5. kérdés nagyon könnyű, 6–10. közepes, 11–13. nehéz, 14–15. nagyon nehéz.
+  return `Készíts pontosan 5 magyar nyelvű feleletválasztós kvízkérdést a "${tema}" témában a "Legyen Ön is milliomos?" játékhoz.
+Nehézség: ${szint.nev}. A sorrendben egyre nehezebbek legyenek.
 Minden kérdésnek pontosan egy, egyértelműen igazolható helyes válasza legyen; kerüld a vitatott, időfüggő vagy bizonytalan tényeket. A rossz válaszok hihetőek legyenek, a válaszok rövidek.${politika}
-Változatos alkérdéseket adj, ne ismételd magad. Véletlenszám a változatosságért: ${Math.floor(Math.random() * 1e6)}.
-Kizárólag JSON tömböt adj vissza, semmi mást, ebben a formában:
+${mar.length ? 'Ezeket a kérdéseket NE ismételd: ' + mar.map(k => '"' + k + '"').join('; ') + '.\n' : ''}Véletlenszám a változatosságért: ${Math.floor(Math.random() * 1e6)}.
+Kizárólag JSON tömböt adj vissza, semmi mást (se magyarázatot, se kódblokkot), ebben a formában:
 [{"kerdes":"...","valaszok":["HELYES válasz","rossz 1","rossz 2","rossz 3"],"magyarazat":"egy mondat"}]
 A "valaszok" tömb ELSŐ eleme mindig a helyes válasz (a program keveri).`;
 }
 
-async function aiKerdesek(ai, tema) {
-  let utolso;
-  for (let proba = 0; proba < 2; proba++) {
-    try {
-      const lista = kinyer(await aiHivas(ai, kerdesUtasitas(tema), 6000), '[', ']');
-      const jo = lista.filter(k => k && typeof k.kerdes === 'string' && Array.isArray(k.valaszok) && k.valaszok.length === 4 && k.valaszok.every(v => typeof v === 'string' && v.trim()));
-      if (jo.length < 15) throw new Error('Az AI nem adott elég érvényes kérdést.');
-      return jo.slice(0, 15).map(k => ({ kerdes: k.kerdes, valaszok: k.valaszok, magyarazat: k.magyarazat || '' }));
-    } catch (e) { utolso = e; }
+// Elfogadó értelmezés: tömb, vagy objektumba csomagolt tömb, kódblokk-kerítéssel is.
+function kerdesLista(szoveg) {
+  let s = szoveg.replace(/```(?:json)?/gi, '');
+  let lista;
+  try { lista = kinyer(s, '[', ']'); }
+  catch { const o = kinyer(s, '{', '}'); lista = Object.values(o).find(Array.isArray) || []; }
+  return lista.filter(k => k && typeof k.kerdes === 'string' && Array.isArray(k.valaszok) && k.valaszok.length === 4 && k.valaszok.every(v => typeof v === 'string' && v.trim()))
+    .map(k => ({ kerdes: k.kerdes, valaszok: k.valaszok, magyarazat: k.magyarazat || '' }));
+}
+
+// 3 × 5 kérdés külön, kisebb kérésekben; jelez(n, mind): előrehaladás.
+async function aiKerdesek(ai, tema, jelez) {
+  const osszes = [];
+  for (let r = 0; r < SZINTEK.length; r++) {
+    let reszek = [], utolso;
+    for (let proba = 0; proba < 3 && reszek.length < 5; proba++) {
+      jelez && jelez(r, proba);
+      try {
+        const uj = kerdesLista(await aiHivas(ai, kerdesUtasitas(tema, SZINTEK[r], osszes.map(k => k.kerdes)), 2500))
+          .filter(k => !osszes.concat(reszek).some(m => m.kerdes === k.kerdes));
+        reszek = reszek.concat(uj);
+      } catch (e) { utolso = e; if (e.message.startsWith('AI hiba (4') && !e.atmeneti) throw e; }
+    }
+    if (reszek.length < 5) throw new Error('Az AI nem adott elég használható kérdést a ' + (r + 1) + '. részhez (' + reszek.length + '/5).' + (utolso ? ' ' + utolso.message : ' A válasz nem a kért formátumú volt – próbálj nagyobb, okosabb modellt.'));
+    osszes.push(...reszek.slice(0, 5));
   }
-  throw utolso;
+  return osszes;
 }
 
 async function aiForras(ai, k) {
