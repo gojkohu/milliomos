@@ -15,7 +15,7 @@ async function egyHivas(ai, modell, feladat, maxToken, probak) {
   if (szolg === 'anthropic') {
     url = 'https://api.anthropic.com/v1/messages';
     fejlec = { 'x-api-key': ai.kulcs, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
-    torzs = { model: modell, max_tokens: maxToken, messages: [{ role: 'user', content: feladat }] };
+    torzs = { model: modell, max_tokens: Math.max(maxToken, 8000), messages: [{ role: 'user', content: feladat }] };
   } else if (szolg === 'gemini') {
     url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modell)}:generateContent`;
     fejlec = { 'x-goog-api-key': ai.kulcs };
@@ -55,9 +55,14 @@ async function egyHivas(ai, modell, feladat, maxToken, probak) {
   }
   if (!v.ok) throw Object.assign(new Error(`AI hiba (${v.status}) [${modell}]: ` + hibaSzoveg.slice(0, 200)), { atmeneti: ATMENETI.includes(v.status) || v.status === 404 });
   const adat = await v.json();
-  if (szolg === 'anthropic') return (adat.content || []).map(r => r.text || '').join('');
-  if (szolg === 'gemini') return ((adat.candidates || [])[0]?.content?.parts || []).map(r => r.text || '').join('');
-  return adat.choices?.[0]?.message?.content || '';
+  let szoveg;
+  if (szolg === 'anthropic') {
+    szoveg = (adat.content || []).map(r => r.text || '').join('');
+    naplo(`  ↳ leállás oka: ${adat.stop_reason || '?'}, kimeneti token: ${adat.usage?.output_tokens ?? '?'}, blokkok: ${(adat.content || []).map(r => r.type).join('+') || 'nincs'}`);
+  } else if (szolg === 'gemini') szoveg = ((adat.candidates || [])[0]?.content?.parts || []).map(r => r.text || '').join('');
+  else szoveg = adat.choices?.[0]?.message?.content || '';
+  if (!szoveg.trim()) throw Object.assign(new Error(`Az AI üres választ adott [${modell}]` + (szolg === 'anthropic' && adat.stop_reason === 'max_tokens' ? ' – a modell a tokenkeretet gondolkodásra használta el.' : '.')), { atmeneti: true });
+  return szoveg;
 }
 
 // A kulcshoz elérhető többi Gemini-modell (szöveggeneráló, "flash" előre), tartalékként.
