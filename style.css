@@ -90,3 +90,6 @@ button{font:inherit;color:inherit;cursor:pointer}
 .linkek a{background:#000a;border:.1rem solid var(--arany);border-radius:2rem;padding:.4rem 1.2rem;font-size:1.4rem;text-decoration:none}
 
 @media (max-width:900px){html{font-size:2vw}.kezdo-racs{grid-template-columns:1fr}.kepernyo{overflow:auto}}
+
+#kezdo{overflow-y:auto;justify-content:safe center}
+.hiba:not(:empty){background:#400;border:.15rem solid #f66;border-radius:.8rem;padding:.6rem 1.2rem}

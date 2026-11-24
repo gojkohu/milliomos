@@ -102,7 +102,7 @@ $('#inditas').addEventListener('click', async () => {
     if (be.szolg === 'demo') kerdesek = window.DEMO_KERDESEK;
     else kerdesek = (await api('/api/kerdesek', { tema: be.tema, ai: aiAdat() })).kerdesek;
     ujJatek(kerdesek);
-  } catch (e) { kepernyo('kezdo'); $('#kezdo-hiba').textContent = e.message; }
+  } catch (e) { kepernyo('kezdo'); $('#kezdo-hiba').textContent = e.message; $('#kezdo-hiba').scrollIntoView({ block: 'center' }); }
 });
 
 // ---- játék ----
