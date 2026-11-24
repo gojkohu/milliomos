@@ -93,10 +93,23 @@ async function aiHivas(ai, feladat, maxToken) {
   }
 }
 
+// Az első teljes JSON-tömböt (vagy objektumot) kiveszi a szövegből: a zárójeleket idézőjelek között nem számolja,
+// és a JSON utáni vagy előtti magyarázó szöveget (akár zárójelekkel) figyelmen kívül hagyja.
 function kinyer(szoveg, nyito, zaro) {
-  const a = szoveg.indexOf(nyito), b = szoveg.lastIndexOf(zaro);
-  if (a < 0 || b < a) throw new Error('Az AI válasza nem értelmezhető: „' + szoveg.slice(0, 160).replace(/\s+/g, ' ') + '”');
-  return JSON.parse(szoveg.slice(a, b + 1));
+  const kezdetek = [];
+  const re = nyito === '[' ? /\[\s*(?:\{|\])/g : /\{/g;
+  let m; while ((m = re.exec(szoveg))) kezdetek.push(m.index);
+  for (const a of kezdetek) {
+    let melyseg = 0, szovegben = false, escape = false;
+    for (let i = a; i < szoveg.length; i++) {
+      const c = szoveg[i];
+      if (szovegben) { if (escape) escape = false; else if (c === '\\') escape = true; else if (c === '"') szovegben = false; continue; }
+      if (c === '"') szovegben = true;
+      else if (c === '[' || c === '{') melyseg++;
+      else if (c === ']' || c === '}') { melyseg--; if (melyseg === 0) { try { return JSON.parse(szoveg.slice(a, i + 1)); } catch { break; } } }
+    }
+  }
+  throw new Error('Az AI válasza nem értelmezhető: „' + szoveg.slice(0, 160).replace(/\s+/g, ' ') + '”');
 }
 
 const SZINTEK = [
