@@ -12,15 +12,24 @@ concurrency:
   group: pages
   cancel-in-progress: true
 jobs:
+  osszeallit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Oldal összeállítása
+        run: |
+          mkdir _site
+          cp index.html style.css app.js ai.js demo.js _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
   kozzetesz:
+    needs: osszeallit
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.telepites.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
       - id: telepites
         uses: actions/deploy-pages@v4
