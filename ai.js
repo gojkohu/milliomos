@@ -3,6 +3,7 @@
 const ALAP_MODELL = { anthropic: 'claude-sonnet-5-5', openai: 'gpt-4o', gemini: 'gemini-3.8-flash', kompatibilis: '' };
 
 const ATMENETI = [429, 500, 502, 503, 529];
+const NEM_SZOVEG = /(embed|image|imagen|tts|audio|live|whisper|guard|moderation|dall-e|veo|robotics|transcri)/i;
 let aiVezerlo = new AbortController();
 const naplo = s => { try { window.aiNaplo && window.aiNaplo(s); } catch {} };
 function aiMegszakit() { aiVezerlo.abort(); }
@@ -26,7 +27,7 @@ async function egyHivas(ai, modell, feladat, maxToken, probak) {
     fejlec = ai.kulcs ? { authorization: 'Bearer ' + ai.kulcs } : {};
     torzs = { model: modell, max_tokens: maxToken, messages: [{ role: 'user', content: feladat }] };
   }
-  let v;
+  let v, hibaSzoveg = '';
   for (let proba = 0; proba <= probak; proba++) {
     const t0 = Date.now(); naplo(`Kérés: ${szolg} / ${modell}${proba ? ' (újra ' + proba + ')' : ''}…`);
     try { v = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...fejlec }, body: JSON.stringify(torzs), signal: AbortSignal.any([AbortSignal.timeout(90000), aiVezerlo.signal]) }); }
@@ -36,10 +37,23 @@ async function egyHivas(ai, modell, feladat, maxToken, probak) {
       throw new Error('Nem érhető el az AI-szolgáltató (hálózati vagy CORS-hiba). Egyes szolgáltatók nem engedik a böngészős hívást.');
     }
     naplo(`Válasz: HTTP ${v.status}, ${((Date.now() - t0) / 1000).toFixed(1)} mp`);
-    if (ATMENETI.includes(v.status) && proba < probak) { await new Promise(r => setTimeout(r, 2000 * 2 ** proba)); continue; }
+    if (!v.ok) hibaSzoveg = await v.text();
+    if (ATMENETI.includes(v.status) && proba < probak) {
+      let varj = 2 * 2 ** proba;
+      if (v.status === 429) {
+        // percenkénti keret: a szolgáltató megmondja, mennyit várjunk (retryDelay / Retry-After)
+        const m = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(hibaSzoveg) || /retry in (\d+(?:\.\d+)?)s/i.exec(hibaSzoveg);
+        const fej = Number(v.headers.get('retry-after'));
+        varj = Math.min(65, Math.ceil(m ? Number(m[1]) : fej || 20)) + 1;
+        if (/PerDay|limit: 0/i.test(hibaSzoveg)) throw Object.assign(new Error(`AI hiba (429) [${modell}]: a napi ingyenes keret elfogyott ennél a modellnél.`), { atmeneti: true });
+      }
+      naplo(`Várakozás ${varj} mp-et${v.status === 429 ? ' (ingyenes kérésszám-korlát)' : ''}, aztán újrapróbálom…`);
+      await new Promise((ok, nem) => { const id = setTimeout(ok, varj * 1000); aiVezerlo.signal.addEventListener('abort', () => { clearTimeout(id); nem(new Error('Megszakítva.')); }, { once: true }); });
+      continue;
+    }
     break;
   }
-  if (!v.ok) throw Object.assign(new Error(`AI hiba (${v.status}) [${modell}]: ` + (await v.text()).slice(0, 200)), { atmeneti: ATMENETI.includes(v.status) || v.status === 404 });
+  if (!v.ok) throw Object.assign(new Error(`AI hiba (${v.status}) [${modell}]: ` + hibaSzoveg.slice(0, 200)), { atmeneti: ATMENETI.includes(v.status) || v.status === 404 });
   const adat = await v.json();
   if (szolg === 'anthropic') return (adat.content || []).map(r => r.text || '').join('');
   if (szolg === 'gemini') return ((adat.candidates || [])[0]?.content?.parts || []).map(r => r.text || '').join('');
@@ -66,7 +80,7 @@ async function aiHivas(ai, feladat, maxToken) {
   if (!ai.kulcs && szolg !== 'kompatibilis') throw new Error('Nincs API-kulcs megadva.');
   const modell = ai.modell || ALAP_MODELL[szolg];
   if (!modell) throw new Error('Add meg a modell nevét.');
-  try { return await egyHivas(ai, modell, feladat, maxToken, szolg === 'gemini' ? 1 : 3); }
+  try { return await egyHivas(ai, modell, feladat, maxToken, szolg === 'gemini' ? 2 : 3); }
   catch (e) {
     if (szolg !== 'gemini' || !e.atmeneti) throw e;
     // Gemini: a választott modell nem elérhető/túlterhelt – próbálunk másikat
@@ -115,10 +129,13 @@ function kerdesLista(szoveg) {
 }
 
 // 3 × 5 kérdés külön, kisebb kérésekben; jelez(n, mind): előrehaladás.
+const reszTar = {}; // témánként a már megkapott részek (újraindításnál nem kérjük újra)
+
 async function aiKerdesek(ai, tema, jelez) {
   aiVezerlo = new AbortController();
-  const osszes = [];
+  const osszes = [], tar = reszTar[tema] = reszTar[tema] || [];
   for (let r = 0; r < SZINTEK.length; r++) {
+    if (tar[r]) { naplo(`${r + 1}. rész már megvan (előző próbálkozásból).`); osszes.push(...tar[r]); continue; }
     let reszek = [], utolso;
     for (let proba = 0; proba < 3 && reszek.length < 5; proba++) {
       jelez && jelez(r, proba);
@@ -129,8 +146,9 @@ async function aiKerdesek(ai, tema, jelez) {
       } catch (e) { utolso = e; naplo('Hiba: ' + e.message.slice(0, 220)); if (e.message === 'Megszakítva.' || (e.message.startsWith('AI hiba (4') && !e.atmeneti)) throw e; }
     }
     if (reszek.length < 5) throw new Error('Az AI nem adott elég használható kérdést a ' + (r + 1) + '. részhez (' + reszek.length + '/5).' + (utolso ? ' ' + utolso.message : ' A válasz nem a kért formátumú volt – próbálj nagyobb, okosabb modellt.'));
-    osszes.push(...reszek.slice(0, 5));
+    tar[r] = reszek.slice(0, 5); osszes.push(...tar[r]);
   }
+  delete reszTar[tema];
   return osszes;
 }
 
@@ -151,14 +169,14 @@ async function aiModellek(ai) {
   if (ai.szolgaltato === 'gemini') {
     const v = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': ai.kulcs } });
     if (!v.ok) throw new Error('Nem sikerült lekérni a modelleket (' + v.status + '). Ellenőrizd a kulcsot.');
-    return ((await v.json()).models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, '')).filter(n => /^gemini/.test(n));
+    return ((await v.json()).models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace(/^models\//, '')).filter(n => /^gemini/.test(n) && !NEM_SZOVEG.test(n));
   }
   const alap = ai.szolgaltato === 'openai' ? 'https://api.openai.com/v1' : String(ai.alapUrl || '').replace(/\/+$/, '');
-  if (ai.szolgaltato === 'anthropic') { const v = await fetch('https://api.anthropic.com/v1/models', { headers: { 'x-api-key': ai.kulcs, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } }); if (!v.ok) throw new Error('Nem sikerült lekérni a modelleket (' + v.status + ').'); return ((await v.json()).data || []).map(m => m.id); }
+  if (ai.szolgaltato === 'anthropic') { const v = await fetch('https://api.anthropic.com/v1/models', { headers: { 'x-api-key': ai.kulcs, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } }); if (!v.ok) throw new Error('Nem sikerült lekérni a modelleket (' + v.status + ').'); return ((await v.json()).data || []).map(m => m.id).filter(n => !NEM_SZOVEG.test(n)); }
   if (!/^https?:\/\//.test(alap)) throw new Error('Előbb add meg az alap URL-t.');
   const v = await fetch(alap + '/models', { headers: ai.kulcs ? { authorization: 'Bearer ' + ai.kulcs } : {} });
   if (!v.ok) throw new Error('Nem sikerült lekérni a modelleket (' + v.status + ').');
-  const ids = ((await v.json()).data || []).map(m => m.id);
+  const ids = ((await v.json()).data || []).map(m => m.id).filter(n => !NEM_SZOVEG.test(n));
   // ingyenes (OpenRouter: ':free' végű) modellek előre
   return ids.sort((x, y) => (/:free$/.test(y) ? 1 : 0) - (/:free$/.test(x) ? 1 : 0));
 }
