@@ -3,6 +3,9 @@
 const ALAP_MODELL = { anthropic: 'claude-sonnet-5-5', openai: 'gpt-4o', gemini: 'gemini-3.8-flash', kompatibilis: '' };
 
 const ATMENETI = [429, 500, 502, 503, 529];
+let aiVezerlo = new AbortController();
+const naplo = s => { try { window.aiNaplo && window.aiNaplo(s); } catch {} };
+function aiMegszakit() { aiVezerlo.abort(); }
 
 // Egyetlen modell hívása; átmeneti hibánál 'probak' alkalommal újrapróbál (2, 4, 8 mp szünettel).
 async function egyHivas(ai, modell, feladat, maxToken, probak) {
@@ -25,11 +28,14 @@ async function egyHivas(ai, modell, feladat, maxToken, probak) {
   }
   let v;
   for (let proba = 0; proba <= probak; proba++) {
-    try { v = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...fejlec }, body: JSON.stringify(torzs), signal: AbortSignal.timeout(90000) }); }
+    const t0 = Date.now(); naplo(`Kérés: ${szolg} / ${modell}${proba ? ' (újra ' + proba + ')' : ''}…`);
+    try { v = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...fejlec }, body: JSON.stringify(torzs), signal: AbortSignal.any([AbortSignal.timeout(90000), aiVezerlo.signal]) }); }
     catch (e) {
+      if (aiVezerlo.signal.aborted) throw new Error('Megszakítva.');
       if (e.name === 'TimeoutError') throw Object.assign(new Error('Az AI 90 másodperc alatt sem válaszolt. Próbáld újra, vagy válassz gyorsabb modellt.'), { atmeneti: true });
       throw new Error('Nem érhető el az AI-szolgáltató (hálózati vagy CORS-hiba). Egyes szolgáltatók nem engedik a böngészős hívást.');
     }
+    naplo(`Válasz: HTTP ${v.status}, ${((Date.now() - t0) / 1000).toFixed(1)} mp`);
     if (ATMENETI.includes(v.status) && proba < probak) { await new Promise(r => setTimeout(r, 2000 * 2 ** proba)); continue; }
     break;
   }
@@ -75,7 +81,7 @@ async function aiHivas(ai, feladat, maxToken) {
 
 function kinyer(szoveg, nyito, zaro) {
   const a = szoveg.indexOf(nyito), b = szoveg.lastIndexOf(zaro);
-  if (a < 0 || b < a) throw new Error('Az AI válasza nem értelmezhető.');
+  if (a < 0 || b < a) throw new Error('Az AI válasza nem értelmezhető: „' + szoveg.slice(0, 160).replace(/\s+/g, ' ') + '”');
   return JSON.parse(szoveg.slice(a, b + 1));
 }
 
@@ -110,6 +116,7 @@ function kerdesLista(szoveg) {
 
 // 3 × 5 kérdés külön, kisebb kérésekben; jelez(n, mind): előrehaladás.
 async function aiKerdesek(ai, tema, jelez) {
+  aiVezerlo = new AbortController();
   const osszes = [];
   for (let r = 0; r < SZINTEK.length; r++) {
     let reszek = [], utolso;
@@ -119,7 +126,7 @@ async function aiKerdesek(ai, tema, jelez) {
         const uj = kerdesLista(await aiHivas(ai, kerdesUtasitas(tema, SZINTEK[r], osszes.map(k => k.kerdes)), 2500))
           .filter(k => !osszes.concat(reszek).some(m => m.kerdes === k.kerdes));
         reszek = reszek.concat(uj);
-      } catch (e) { utolso = e; if (e.message.startsWith('AI hiba (4') && !e.atmeneti) throw e; }
+      } catch (e) { utolso = e; naplo('Hiba: ' + e.message.slice(0, 220)); if (e.message === 'Megszakítva.' || (e.message.startsWith('AI hiba (4') && !e.atmeneti)) throw e; }
     }
     if (reszek.length < 5) throw new Error('Az AI nem adott elég használható kérdést a ' + (r + 1) + '. részhez (' + reszek.length + '/5).' + (utolso ? ' ' + utolso.message : ' A válasz nem a kért formátumú volt – próbálj nagyobb, okosabb modellt.'));
     osszes.push(...reszek.slice(0, 5));
@@ -154,4 +161,12 @@ async function aiModellek(ai) {
   const ids = ((await v.json()).data || []).map(m => m.id);
   // ingyenes (OpenRouter: ':free' végű) modellek előre
   return ids.sort((x, y) => (/:free$/.test(y) ? 1 : 0) - (/:free$/.test(x) ? 1 : 0));
+}
+
+// Kapcsolat próbája: egészen rövid kérés, hogy kiderüljön, működik-e a szolgáltató/modell/kulcs.
+async function aiProba(ai) {
+  aiVezerlo = new AbortController();
+  const t0 = Date.now();
+  const sz = await aiHivas(ai, 'Válaszolj pontosan egy szóval: OK', 300);
+  return { szoveg: (sz || '').trim().slice(0, 60) || '(üres válasz)', mp: ((Date.now() - t0) / 1000).toFixed(1) };
 }

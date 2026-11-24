@@ -106,13 +106,15 @@ $('#inditas').addEventListener('click', async () => {
   const s = SZOLGALTATOK[be.szolg];
   if (s.kulcs && be.szolg !== 'kompatibilis' && !be.kulcs) return $('#kezdo-hiba').textContent = 'Add meg az API-kulcsot, vagy válaszd a Demó módot.';
   mentBeallitas();
-  kepernyo('betoltes');
+  kepernyo('betoltes'); $('#naplo').textContent = '';
+  const t0 = Date.now(); const ora = setInterval(() => { $('#idoszamlalo') && ($('#idoszamlalo').textContent = Math.round((Date.now() - t0) / 1000) + ' mp'); }, 1000);
+  window.aiNaplo = s => { const n = $('#naplo'); n.textContent += `[${Math.round((Date.now() - t0) / 1000)} mp] ${s}\n`; n.scrollTop = n.scrollHeight; };
   try {
     let kerdesek;
     if (be.szolg === 'demo') kerdesek = window.DEMO_KERDESEK;
     else kerdesek = (await api('/api/kerdesek', { tema: be.tema, ai: aiAdat() })).kerdesek;
-    ujJatek(kerdesek);
-  } catch (e) { kepernyo('kezdo'); $('#kezdo-hiba').textContent = e.message; $('#kezdo-hiba').scrollIntoView({ block: 'center' }); }
+    clearInterval(ora); ujJatek(kerdesek);
+  } catch (e) { clearInterval(ora); kepernyo('kezdo'); $('#kezdo-hiba').textContent = e.message === 'Megszakítva.' ? '' : e.message; $('#kezdo-hiba').scrollIntoView({ block: 'center' }); }
 });
 
 // ---- játék ----
@@ -249,3 +251,13 @@ $('#b-teljes').addEventListener('click', () => { document.fullscreenElement ? do
 
 if (!SZOLGALTATOK[be.szolg]) be.szolg = 'anthropic';
 kezdoFrissit();
+
+$('#megse').addEventListener('click', () => aiMegszakit());
+$('#proba-gomb').addEventListener('click', async () => {
+  const k = $('#proba-eredmeny'); k.style.color = ''; k.textContent = 'Próba folyamatban…';
+  const s = SZOLGALTATOK[be.szolg];
+  if (be.szolg === 'demo') return k.textContent = 'Demó módban nincs AI.';
+  window.aiNaplo = null;
+  try { const r = await aiProba(aiAdat()); k.style.color = '#9fe3a8'; k.textContent = `✔ Működik (${r.mp} mp). A modell válasza: „${r.szoveg}”`; }
+  catch (e) { k.style.color = '#ff8a8a'; k.textContent = '✘ ' + e.message; }
+});
