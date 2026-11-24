@@ -136,17 +136,22 @@ function korabbiOlvas(tema) { try { return (JSON.parse(localStorage.getItem(KORA
 function korabbiMent(tema, lista) {
   try { const mind = JSON.parse(localStorage.getItem(KORABBI_KULCS) || '{}'); mind[tema] = (mind[tema] || []).concat(lista).slice(-400); localStorage.setItem(KORABBI_KULCS, JSON.stringify(mind)); } catch { /* nincs tárhely */ }
 }
+const VALASZ_KULCS = 'milliomos-korabbi-valasz';
+function valaszOlvas(tema) { try { return (JSON.parse(localStorage.getItem(VALASZ_KULCS) || '{}')[tema] || []); } catch { return []; } }
+function valaszMent(tema, lista) { try { const mind = JSON.parse(localStorage.getItem(VALASZ_KULCS) || '{}'); mind[tema] = (mind[tema] || []).concat(lista).slice(-200); localStorage.setItem(VALASZ_KULCS, JSON.stringify(mind)); } catch { /* nincs tárhely */ } }
+const tokenek = s => normal(s).split(' ').filter(w => w.length > 3);
+function hasonlo(x, y) { const A = new Set(tokenek(x)), B = tokenek(y); if (!A.size || !B.length) return false; const kozos = B.filter(w => A.has(w)).length; return kozos / (A.size + B.length - kozos) > 0.5; }
 const keverTomb = t => { t = t.slice(); for (let i = t.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [t[i], t[k]] = [t[k], t[i]]; } return t; };
 
 function kerdesUtasitas(tema, szint, mar, korabbi) {
   const politika = tema === 'Politika'
     ? ' Politika témában a kérdések tárgyilagosak és tényalapúak legyenek (intézmények, történelem, nemzetközi szervezetek, ismert események); semmilyen pártos, véleményes vagy vitatott állítás ne szerepeljen.'
     : '';
-  const agak = keverTomb(ALTERULETEK[tema] || []).slice(0, 5);
+  const agak = keverTomb(ALTERULETEK[tema] || []).slice(0, 7);
   const tiltott = mar.concat(keverTomb(korabbi).slice(0, 60)).map(k => '"' + k.slice(0, 80) + '"');
-  return `Készíts pontosan 5 magyar nyelvű feleletválasztós kvízkérdést a "${tema}" témában a "Legyen Ön is milliomos?" játékhoz.
+  return `Készíts pontosan 7 magyar nyelvű feleletválasztós kvízkérdést a "${tema}" témában a "Legyen Ön is milliomos?" játékhoz.
 Nehézség: ${szint.nev}. A sorrendben egyre nehezebbek legyenek.
-${agak.length ? 'Ezekből az alterületekből válassz, mind az 5 kérdés más-más alterületről vagy témakörből szóljon: ' + agak.join('; ') + '.\n' : ''}Kerüld a közhelyes, mindenki által ismert "tankönyvi" példákat; a kérdések legyenek váratlanok és változatosak.
+${agak.length ? 'Ezekből az alterületekből válassz, mind a 7 kérdés más-más alterületről vagy témakörből szóljon: ' + agak.join('; ') + '.\n' : ''}Kerüld a közhelyes, mindenki által ismert "tankönyvi" példákat; a kérdések legyenek váratlanok és változatosak.
 Minden kérdésnek pontosan egy, egyértelműen igazolható helyes válasza legyen; kerüld a vitatott, időfüggő vagy bizonytalan tényeket. A rossz válaszok hihetőek legyenek, a válaszok rövidek.${politika}
 ${tiltott.length ? 'Ezeket a kérdéseket (vagy ezek közeli változatait) NE ismételd: ' + tiltott.join('; ') + '.\n' : ''}Véletlenszám a változatosságért: ${Math.floor(Math.random() * 1e6)}.
 Kizárólag JSON tömböt adj vissza, semmi mást (se magyarázatot, se kódblokkot), ebben a formában:
@@ -169,7 +174,7 @@ const reszTar = {}; // témánként a már megkapott részek (újraindításnál
 
 async function aiKerdesek(ai, tema, jelez) {
   aiVezerlo = new AbortController();
-  const osszes = [], tar = reszTar[tema] = reszTar[tema] || [], korabbi = korabbiOlvas(tema), korabbiNorm = new Set(korabbi.map(normal));
+  const osszes = [], tar = reszTar[tema] = reszTar[tema] || [], korabbi = korabbiOlvas(tema), korabbiValasz = new Set(valaszOlvas(tema));
   for (let r = 0; r < SZINTEK.length; r++) {
     if (tar[r]) { naplo(`${r + 1}. rész már megvan (előző próbálkozásból).`); osszes.push(...tar[r]); continue; }
     let reszek = [], utolso;
@@ -177,7 +182,8 @@ async function aiKerdesek(ai, tema, jelez) {
       jelez && jelez(r, proba);
       try {
         const uj = kerdesLista(await aiHivas(ai, kerdesUtasitas(tema, SZINTEK[r], osszes.map(k => k.kerdes), korabbi), 2500))
-          .filter(k => !osszes.concat(reszek).some(m => m.kerdes === k.kerdes) && !korabbiNorm.has(normal(k.kerdes)));
+          .filter(k => !korabbi.some(q => hasonlo(q, k.kerdes)) && !korabbiValasz.has(normal(k.valaszok[0]))
+            && !osszes.concat(reszek).some(m => m.kerdes === k.kerdes || hasonlo(m.kerdes, k.kerdes) || normal(m.valaszok[0]) === normal(k.valaszok[0])));
         reszek = reszek.concat(uj);
       } catch (e) { utolso = e; naplo('Hiba: ' + e.message.slice(0, 220)); if (e.message === 'Megszakítva.' || (e.message.startsWith('AI hiba (4') && !e.atmeneti)) throw e; }
     }
@@ -185,7 +191,7 @@ async function aiKerdesek(ai, tema, jelez) {
     tar[r] = reszek.slice(0, 5); osszes.push(...tar[r]);
   }
   delete reszTar[tema];
-  korabbiMent(tema, osszes.map(k => k.kerdes));
+  korabbiMent(tema, osszes.map(k => k.kerdes)); valaszMent(tema, osszes.map(k => normal(k.valaszok[0])));
   return osszes;
 }
 
