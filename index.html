@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legyen Ön is milliomos?</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="kijelzo">
+
+  <!-- KEZDŐKÉPERNYŐ -->
+  <section id="kezdo" class="kepernyo aktiv">
+    <div class="logo"><span>Legyen Ön is</span><b>MILLIOMOS?</b></div>
+    <div class="kezdo-racs">
+      <div class="doboz">
+        <h3>1. Téma</h3>
+        <div class="gombsor" id="temak"></div>
+        <h3>2. Fődíj</h3>
+        <div class="gombsor" id="penznemek">
+          <button class="valaszto" data-p="HUF">Forint (Ft)</button>
+          <button class="valaszto" data-p="EUR">Euró (€)</button>
+        </div>
+        <div class="gombsor" id="eloszto"></div>
+        <label class="mezo">Teljes nyeremény
+          <input id="fodij" type="number" min="1000" step="1000">
+        </label>
+      </div>
+      <div class="doboz">
+        <h3>3. AI-asszisztens</h3>
+        <div class="gombsor" id="szolgaltatok"></div>
+        <label class="mezo" id="kulcs-sor">API-kulcs
+          <input id="kulcs" type="password" autocomplete="off" placeholder="a böngészőben marad, a lap bezárásakor törlődik">
+        </label>
+        <label class="mezo" id="modell-sor">Modell
+          <input id="modell" type="text" autocomplete="off">
+        </label>
+        <label class="mezo" id="url-sor">Alap URL (pl. https://openrouter.ai/api/v1)
+          <input id="alapurl" type="text" autocomplete="off">
+        </label>
+        <p class="sugo" id="ai-sugo"></p>
+      </div>
+    </div>
+    <button id="inditas" class="nagy-gomb">Játék indítása</button>
+    <p id="kezdo-hiba" class="hiba"></p>
+  </section>
+
+  <!-- BETÖLTÉS -->
+  <section id="betoltes" class="kepernyo">
+    <div class="logo"><span>Legyen Ön is</span><b>MILLIOMOS?</b></div>
+    <p class="betoltes-szoveg">Az AI most állítja össze a kérdéseket…</p>
+    <div class="pontok"><i></i><i></i><i></i></div>
+  </section>
+
+  <!-- JÁTÉK -->
+  <section id="jatek" class="kepernyo">
+    <div class="bal">
+      <div class="felso">
+        <div class="segitsegek">
+          <button class="segitseg" id="seg-felezo" title="Felező">50:50</button>
+          <button class="segitseg" id="seg-telefon" title="Telefonos segítség">☎</button>
+          <button class="segitseg" id="seg-kozonseg" title="Közönség segítsége">👥</button>
+        </div>
+        <div class="tema-cimke" id="tema-cimke"></div>
+      </div>
+      <div class="kozep"><div class="logo kicsi"><span>Legyen Ön is</span><b>MILLIOMOS?</b></div></div>
+      <div class="also">
+        <div class="kerdes-doboz hex" id="kerdes"></div>
+        <div class="valaszok" id="valaszok"></div>
+      </div>
+    </div>
+    <aside class="jobb">
+      <ol id="letra"></ol>
+      <div class="vezerlok">
+        <button id="b-vegleges" class="vez">Végleges válasz</button>
+        <button id="b-forras" class="vez" hidden>🔍 Forrás ellenőrzés</button>
+        <button id="b-tovabb" class="vez" hidden>Tovább ▶</button>
+        <div class="vez-sor">
+          <button id="b-feladom" class="vez kicsi-vez">Feladom</button>
+          <button id="b-hang" class="vez kicsi-vez">🔊</button>
+          <button id="b-teljes" class="vez kicsi-vez">⛶</button>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- VÉGE -->
+  <section id="vege" class="kepernyo">
+    <div class="logo"><span>Legyen Ön is</span><b>MILLIOMOS?</b></div>
+    <p id="vege-cim" class="vege-cim"></p>
+    <p id="vege-osszeg" class="vege-osszeg"></p>
+    <button id="ujra" class="nagy-gomb">Új játék</button>
+  </section>
+
+  <!-- FELUGRÓ ABLAK (segítségek, forrás) -->
+  <div id="takaro" class="takaro" hidden>
+    <div class="ablak">
+      <div id="ablak-tartalom"></div>
+      <button id="ablak-zar" class="nagy-gomb kicsi-gomb">Bezár</button>
+    </div>
+  </div>
+</div>
+<script src="demo.js"></script>
+<script src="ai.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

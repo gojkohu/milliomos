@@ -1,0 +1,92 @@
+:root{--kek:#0b1a6b;--sotet:#050a33;--arany:#e8c35a;--narancs:#f39a1e;--zold:#1fa84f;--piros:#d33;--szoveg:#fff}
+*{box-sizing:border-box}
+html{font-size:min(1.9vh,1.05vw)}
+body{margin:0;background:#000;color:var(--szoveg);font-family:"Segoe UI",Arial,sans-serif;overflow:hidden}
+#kijelzo{width:100vw;height:100vh;background:radial-gradient(ellipse at 50% 35%,#2430a8 0,#0b1470 45%,#030620 100%);position:relative}
+button{font:inherit;color:inherit;cursor:pointer}
+.kepernyo{display:none;position:absolute;inset:0;padding:2rem 3rem}
+.kepernyo.aktiv{display:flex}
+#kezdo,#betoltes,#vege{flex-direction:column;align-items:center;justify-content:center;gap:1.4rem}
+.logo{text-align:center;border:.25rem solid var(--arany);border-radius:50%;padding:1rem 4rem;background:radial-gradient(ellipse,#3b2a9a,#0a0f5a);box-shadow:0 0 3rem #4a5cff88,inset 0 0 2rem #000a}
+.logo span{display:block;font-size:2rem;letter-spacing:.2rem;color:var(--arany)}
+.logo b{display:block;font-size:4.2rem;letter-spacing:.3rem;text-shadow:0 0 1rem #fff8}
+.logo.kicsi{padding:.6rem 3rem;transform:scale(.8)}
+.kezdo-racs{display:grid;grid-template-columns:1fr 1fr;gap:2rem;width:100%;max-width:90rem}
+.doboz{background:#000a;border:.15rem solid var(--arany);border-radius:1.2rem;padding:1.2rem 1.6rem}
+.doboz h3{margin:.6rem 0;color:var(--arany);font-size:1.6rem}
+.gombsor{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.6rem}
+.valaszto{background:linear-gradient(#1a2a9a,#0a1260);border:.15rem solid var(--arany);border-radius:2rem;padding:.5rem 1.2rem;font-size:1.4rem}
+.valaszto.kivalasztva{background:linear-gradient(#ffb43a,#e07800);color:#000;font-weight:700}
+.mezo{display:block;font-size:1.2rem;margin:.6rem 0;color:#cdd3ff}
+.mezo input{display:block;width:100%;margin-top:.25rem;font-size:1.4rem;padding:.5rem .8rem;border-radius:.6rem;border:.1rem solid var(--arany);background:#000c;color:#fff}
+.sugo{font-size:1.1rem;color:#aab3ff;margin:.4rem 0 0}
+.hiba{color:#ff8a8a;font-size:1.4rem;min-height:1.6rem;margin:0;text-align:center;max-width:70rem}
+.nagy-gomb{background:linear-gradient(#ffb43a,#e07800);border:.2rem solid #fff;border-radius:3rem;padding:.8rem 3rem;font-size:2rem;font-weight:700;color:#000}
+.nagy-gomb:hover,.vez:hover:not(:disabled){filter:brightness(1.15)}
+.nagy-gomb.kicsi-gomb{font-size:1.4rem;padding:.4rem 1.6rem}
+.betoltes-szoveg{font-size:2rem}
+.pontok i{display:inline-block;width:1.4rem;height:1.4rem;margin:0 .4rem;border-radius:50%;background:var(--arany);animation:pont 1s infinite}
+.pontok i:nth-child(2){animation-delay:.2s}.pontok i:nth-child(3){animation-delay:.4s}
+@keyframes pont{0%,100%{opacity:.2}50%{opacity:1}}
+
+/* játék */
+#jatek{gap:2rem;padding:1.5rem 2rem}
+.bal{flex:1;display:flex;flex-direction:column;min-width:0}
+.felso{display:flex;justify-content:space-between;align-items:center}
+.segitsegek{display:flex;gap:1rem}
+.segitseg{width:7rem;height:4.2rem;border-radius:50%/50%;border:.2rem solid var(--arany);background:radial-gradient(#2a3ad0,#0a1260);font-size:1.7rem;font-weight:700}
+.segitseg:hover:not(:disabled){filter:brightness(1.3)}
+.segitseg:disabled{opacity:.55}
+.segitseg.hasznalt{opacity:.9;background:#222;border-color:#666;color:#999;position:relative}
+.segitseg.hasznalt::after{content:"✕";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:4rem;color:var(--piros);font-weight:900}
+.tema-cimke{font-size:1.6rem;color:var(--arany);letter-spacing:.1rem}
+.kozep{flex:1;display:flex;align-items:center;justify-content:center}
+.hex{clip-path:polygon(2.5rem 0,calc(100% - 2.5rem) 0,100% 50%,calc(100% - 2.5rem) 100%,2.5rem 100%,0 50%)}
+.kerdes-doboz,.valasz{background:linear-gradient(#0f1d8f,#050c52);border:0;position:relative}
+.kerdes-doboz{padding:1.6rem 5rem;font-size:2.3rem;text-align:center;min-height:9rem;display:flex;align-items:center;justify-content:center;margin-bottom:1rem;filter:drop-shadow(0 0 .3rem var(--arany))}
+.valaszok{display:grid;grid-template-columns:1fr 1fr;gap:.9rem 1.5rem}
+.valasz{padding:1rem 3.5rem;font-size:2rem;text-align:left;display:flex;gap:1rem;align-items:center;min-height:5.6rem;filter:drop-shadow(0 0 .2rem var(--arany));transition:background .2s}
+.valasz b{color:var(--narancs);font-size:2rem}
+.valasz:hover:not(:disabled){background:linear-gradient(#2a3ad0,#0a1670)}
+.valasz.kijelolt{background:linear-gradient(#ffb43a,#e07800);color:#000}.valasz.kijelolt b{color:#000}
+.valasz.zold{background:linear-gradient(#35d870,#0e7a30);color:#fff;animation:villog .5s 4}.valasz.zold b{color:#fff}
+.valasz.piros{background:linear-gradient(#f55,#900)}
+.valasz.eltunt{visibility:hidden}
+.valasz:disabled{cursor:default}
+@keyframes villog{50%{filter:brightness(1.8)}}
+.jobb{width:23rem;display:flex;flex-direction:column;gap:.8rem}
+#letra{list-style:none;margin:0;padding:.6rem;display:flex;flex-direction:column-reverse;gap:.2rem;background:#000a;border:.15rem solid var(--arany);border-radius:1rem}
+#letra li{display:flex;justify-content:space-between;font-size:1.45rem;padding:.12rem .8rem;border-radius:.4rem;color:var(--narancs);font-weight:600}
+#letra li.biztos{color:#fff}
+#letra li.mostani{background:var(--narancs);color:#000}
+#letra li.elert{color:#6f7ad8}
+.vezerlok{display:flex;flex-direction:column;gap:.5rem}
+.vez{background:linear-gradient(#2a3ad0,#0a1260);border:.15rem solid var(--arany);border-radius:.8rem;padding:.6rem;font-size:1.4rem}
+.vez:disabled{opacity:.4;cursor:default}
+.vez.kiemelt{background:linear-gradient(#ffb43a,#e07800);color:#000;font-weight:700}
+.vez[hidden]{display:none}
+.vez-sor{display:flex;gap:.5rem}.kicsi-vez{flex:1;font-size:1.2rem}
+
+/* vége */
+.vege-cim{font-size:3rem;margin:0}.vege-osszeg{font-size:6rem;margin:0;color:var(--arany);font-weight:800;text-shadow:0 0 2rem #e8c35a88}
+
+/* felugró ablak */
+.takaro{position:absolute;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:10}
+.takaro[hidden]{display:none}
+.ablak{background:linear-gradient(#0f1d8f,#050c52);border:.2rem solid var(--arany);border-radius:1.5rem;padding:2rem 3rem;min-width:50rem;max-width:80rem;text-align:center;display:flex;flex-direction:column;gap:1.5rem;align-items:center}
+.ablak h2{margin:0;color:var(--arany);font-size:2.4rem}
+.ablak p{font-size:1.7rem;margin:.3rem 0}
+.ablak .nagy{font-size:2.2rem}
+.ablak ul{text-align:left;font-size:1.5rem;margin:0}
+.ablak a{color:#9cc0ff}
+.ablak .ido{font-size:4rem;color:var(--narancs);font-weight:800}
+.diagram{display:flex;gap:2rem;align-items:flex-end;height:20rem}
+.oszlop{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;width:8rem}
+.oszlop div{width:100%;background:linear-gradient(#ffb43a,#e07800);border-radius:.4rem .4rem 0 0;transition:height 1s}
+.oszlop span{font-size:1.6rem;font-weight:700}.oszlop em{font-style:normal;font-size:2rem;color:var(--arany)}
+.itelet{font-size:2.4rem;font-weight:800;padding:.3rem 1.6rem;border-radius:2rem}
+.itelet.megerositve{background:var(--zold)}.itelet.ketseges{background:var(--narancs);color:#000}.itelet.hibas{background:var(--piros)}
+.linkek{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center}
+.linkek a{background:#000a;border:.1rem solid var(--arany);border-radius:2rem;padding:.4rem 1.2rem;font-size:1.4rem;text-decoration:none}
+
+@media (max-width:900px){html{font-size:2vw}.kezdo-racs{grid-template-columns:1fr}.kepernyo{overflow:auto}}
