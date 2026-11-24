@@ -235,7 +235,7 @@ function eredmenyAblak(szaz, k, marad, lab) {
 $('#seg-kozonseg').addEventListener('click', () => {
   const k = j.kerdesek[j.szint], marad = k.opciok.map((_, i) => i).filter(i => !j.eltavolitott.includes(i));
   hasznal('kozonseg');
-  const sz = new Szavazas(marad.map(i => BETUK[i])); j.szavazas = sz;
+  const sz = new Szavazas(marad.map(i => BETUK[i]), Object.fromEntries(marad.map(i => [BETUK[i], k.opciok[i].sz])), k.kerdes); j.szavazas = sz;
   const url = sz.url();
   ablak(`<h2>👥 Szavazzon a közönség!</h2>
     <div class="kozonseg-racs"><div class="qr">${qrSvg(url)}</div>

@@ -8,9 +8,9 @@ class Szavazas {
     if (!Szavazas._t) { const b = new Uint8Array(10); crypto.getRandomValues(b); Szavazas._t = 'milliomos-' + Array.from(b, x => (x % 36).toString(36)).join(''); }
     return Szavazas._t;
   }
-  constructor(opciok) {
+  constructor(opciok, szovegek = {}, kerdes = '') {
     this.q = Math.random().toString(36).slice(2, 10);
-    this.opciok = opciok; this.szavatok = new Map(); this.nyitva = true;
+    this.opciok = opciok; this.szovegek = szovegek; this.kerdes = kerdes; this.szavatok = new Map(); this.nyitva = true;
     this.onFrissit = null; this.onAllapot = null; this.es = null; this.tema = Szavazas.tema();
   }
   url() {
@@ -20,7 +20,7 @@ class Szavazas {
   kuld(obj) { return fetch(`${NTFY}/${this.tema}`, { method: 'POST', body: JSON.stringify(obj) }).then(v => v.ok).catch(() => false); }
   indit() {
     this.es = new EventSource(`${NTFY}/${this.tema}/sse`);
-    this.es.onopen = () => { this.onAllapot && this.onAllapot('kapcsolt'); this.kuld({ t: 'nyit', q: this.q, o: this.opciok }); };
+    this.es.onopen = () => { this.onAllapot && this.onAllapot('kapcsolt'); this.kuld({ t: 'nyit', q: this.q, o: this.opciok, k: String(this.kerdes).slice(0, 300), s: Object.fromEntries(this.opciok.map(b => [b, String(this.szovegek[b] || '').slice(0, 120)])) }); };
     this.es.onerror = () => { this.onAllapot && this.onAllapot('hiba'); };
     this.es.onmessage = e => {
       try {
