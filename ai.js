@@ -2,11 +2,11 @@
 // AI-hívások közvetlenül a böngészőből (nincs szükség szerverre). A kulcs csak a böngészőből megy a szolgáltatóhoz.
 const ALAP_MODELL = { anthropic: 'claude-sonnet-5-5', openai: 'gpt-4o', gemini: 'gemini-3.8-flash', kompatibilis: '' };
 
-async function aiHivas(ai, feladat, maxToken) {
+const ATMENETI = [429, 500, 502, 503, 529];
+
+// Egyetlen modell hívása; átmeneti hibánál 'probak' alkalommal újrapróbál (2, 4, 8 mp szünettel).
+async function egyHivas(ai, modell, feladat, maxToken, probak) {
   const szolg = ai.szolgaltato;
-  if (!ai.kulcs && szolg !== 'kompatibilis') throw new Error('Nincs API-kulcs megadva.');
-  const modell = ai.modell || ALAP_MODELL[szolg];
-  if (!modell) throw new Error('Add meg a modell nevét.');
   let url, fejlec, torzs;
   if (szolg === 'anthropic') {
     url = 'https://api.anthropic.com/v1/messages';
@@ -24,21 +24,52 @@ async function aiHivas(ai, feladat, maxToken) {
     torzs = { model: modell, max_tokens: maxToken, messages: [{ role: 'user', content: feladat }] };
   }
   let v;
-  for (let proba = 0; proba < 4; proba++) {
+  for (let proba = 0; proba <= probak; proba++) {
     try { v = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...fejlec }, body: JSON.stringify(torzs), signal: AbortSignal.timeout(90000) }); }
     catch (e) {
-      if (e.name === 'TimeoutError') throw new Error('Az AI 90 másodperc alatt sem válaszolt. Próbáld újra, vagy válassz gyorsabb modellt.');
+      if (e.name === 'TimeoutError') throw Object.assign(new Error('Az AI 90 másodperc alatt sem válaszolt. Próbáld újra, vagy válassz gyorsabb modellt.'), { atmeneti: true });
       throw new Error('Nem érhető el az AI-szolgáltató (hálózati vagy CORS-hiba). Egyes szolgáltatók nem engedik a böngészős hívást.');
     }
-    // átmeneti túlterheltség: kis szünetekkel újrapróbáljuk (2, 4, 8 mp)
-    if ([429, 500, 502, 503, 529].includes(v.status) && proba < 3) { await new Promise(r => setTimeout(r, 2000 * 2 ** proba)); continue; }
+    if (ATMENETI.includes(v.status) && proba < probak) { await new Promise(r => setTimeout(r, 2000 * 2 ** proba)); continue; }
     break;
   }
-  if (!v.ok) throw new Error(`AI hiba (${v.status}): ` + (await v.text()).slice(0, 200) + ([429, 503, 529].includes(v.status) ? ' – a szolgáltató most túlterhelt, próbáld újra egy perc múlva, vagy válassz másik modellt.' : ''));
+  if (!v.ok) throw Object.assign(new Error(`AI hiba (${v.status}) [${modell}]: ` + (await v.text()).slice(0, 200)), { atmeneti: ATMENETI.includes(v.status) || v.status === 404 });
   const adat = await v.json();
   if (szolg === 'anthropic') return (adat.content || []).map(r => r.text || '').join('');
   if (szolg === 'gemini') return ((adat.candidates || [])[0]?.content?.parts || []).map(r => r.text || '').join('');
   return adat.choices?.[0]?.message?.content || '';
+}
+
+// A kulcshoz elérhető többi Gemini-modell (szöveggeneráló, "flash" előre), tartalékként.
+async function geminiTartalekok(kulcs, kiveve) {
+  try {
+    const v = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': kulcs } });
+    if (!v.ok) return [];
+    const nevek = ((await v.json()).models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => m.name.replace(/^models\//, ''))
+      .filter(n => /^gemini/.test(n) && !/(embed|image|tts|live|audio|vision|robotics|computer|customtools|exp)/.test(n) && n !== kiveve);
+    const pont = n => (/flash/.test(n) ? 0 : 10) + (/lite/.test(n) ? 1 : 0) + (/-latest$/.test(n) ? -2 : 0) + (/preview/.test(n) ? 3 : 0);
+    return nevek.sort((a, b) => pont(a) - pont(b)).slice(0, 4);
+  } catch { return []; }
+}
+
+async function aiHivas(ai, feladat, maxToken) {
+  const szolg = ai.szolgaltato;
+  if (!ai.kulcs && szolg !== 'kompatibilis') throw new Error('Nincs API-kulcs megadva.');
+  const modell = ai.modell || ALAP_MODELL[szolg];
+  if (!modell) throw new Error('Add meg a modell nevét.');
+  try { return await egyHivas(ai, modell, feladat, maxToken, szolg === 'gemini' ? 1 : 3); }
+  catch (e) {
+    if (szolg !== 'gemini' || !e.atmeneti) throw e;
+    // Gemini: a választott modell nem elérhető/túlterhelt – próbálunk másikat
+    let utolso = e;
+    for (const m of await geminiTartalekok(ai.kulcs, modell)) {
+      try { const sz = await egyHivas(ai, m, feladat, maxToken, 0); window.AI_HASZNALT = m; return sz; }
+      catch (e2) { if (!e2.atmeneti) throw e2; utolso = e2; }
+    }
+    throw new Error(utolso.message + ' – a szolgáltató most túlterhelt, próbáld újra egy perc múlva, vagy írj be másik modellt.');
+  }
 }
 
 function kinyer(szoveg, nyito, zaro) {
