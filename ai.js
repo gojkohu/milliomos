@@ -128,6 +128,10 @@ const ALTERULETEK = {
   'Film': ['magyar film és filmesek', 'hollywoodi klasszikusok', 'animációs filmek', 'sci-fi és fantasy', 'horror és thriller', 'Oscar-díj és filmfesztiválok', 'rendezők', 'színészek és színésznők', 'filmzene', 'tévésorozatok', 'vígjátékok', 'történelmi és háborús filmek', 'szinkron és magyar tévé', 'mesefilmek', 'filmes idézetek és szereplők', 'különleges effektek és filmtörténet'],
   'Sport': ['labdarúgás', 'olimpiai játékok', 'Forma-1 és motorsport', 'tenisz', 'kosárlabda', 'kézilabda és vízilabda', 'úszás', 'atlétika', 'téli sportok', 'magyar sportolók', 'kerékpározás és Tour de France', 'ökölvívás és küzdősportok', 'labdarúgó-világbajnokságok és Eb-k', 'sportszabályok és sportszerek', 'sportlétesítmények és csapatok', 'rekordok és érdekességek'],
   'Általános műveltség': ['földrajz', 'világtörténelem', 'magyar történelem', 'természettudomány', 'magyar és világirodalom', 'zene és zeneszerzők', 'képzőművészet és építészet', 'nyelvek és szólások', 'gasztronómia', 'technika és találmányok', 'állatvilág és növények', 'mitológia és vallások', 'csillagászat', 'emberi test és egészség', 'hétköznapi tudás és mértékegységek', 'híres emberek'],
+  'Gasztronómia': ['magyar ételek és hagyományos receptek', 'világkonyha (olasz, francia, ázsiai, mexikói)', 'borok és borvidékek', 'sör, pálinka és egyéb italok', 'fűszerek és alapanyagok', 'sütemények és desszertek', 'konyhai technikák és szakkifejezések', 'sajtok és tejtermékek', 'zöldségek és gyümölcsök', 'híres szakácsok és éttermek', 'ételek eredete és története', 'kávé és tea', 'húsok és halak', 'ünnepi ételek és népszokások'],
+  'Irodalom': ['magyar költők és versek', 'magyar regények és íróik', 'világirodalmi klasszikusok', 'drámák és színház', 'Nobel-díjas írók', 'mesék és gyerekirodalom', 'irodalmi hősök és szereplők', 'híres idézetek és sorok', 'irodalmi korszakok és irányzatok', 'krimi és sci-fi irodalom', 'magyar írók élete és kapcsolatai', 'költői eszközök és műfajok', 'ókori és középkori irodalom', 'kortárs irodalom és díjak'],
+  'IT': ['programozási nyelvek', 'az internet és a web története', 'hardver és számítógép-alkatrészek', 'operációs rendszerek', 'adatbázisok és adattárolás', 'hálózatok és protokollok', 'informatikai biztonság', 'mesterséges intelligencia története és fogalmai', 'híres informatikusok és cégek', 'szoftverfejlesztési fogalmak', 'a számítástechnika története', 'felhő és szerverek', 'mértékegységek és számrendszerek', 'internetes kultúra és szleng'],
+  'Történelem': ['ókori Görögország és Róma', 'középkor és lovagkor', 'magyar honfoglalás és államalapítás', 'Árpád-kor és Anjou-kor', 'Mohács, török hódoltság és Habsburgok', '1848–49 szabadságharc', 'az első világháború és Trianon', 'a második világháború', 'a hidegháború', '1956-os forradalom', 'rendszerváltás', 'felfedezők és földrajzi felfedezések', 'ókori civilizációk (Egyiptom, Mezopotámia)', 'forradalmak és birodalmak', 'híres uralkodók és csaták', 'találmányok és társadalmi változások'],
   'Politika': ['magyar állami berendezkedés és intézmények', 'magyar történelem és államfők', 'Európai Unió', 'ENSZ és nemzetközi szervezetek', 'NATO és biztonságpolitika', 'államformák és politikai fogalmak', 'választási rendszerek', 'az Egyesült Államok politikai rendszere', 'történelmi politikai személyiségek', 'alkotmányok és jogi alapfogalmak', 'diplomácia és nemzetközi szerződések', 'világpolitikai fordulópontok'],
 };
 const KORABBI_KULCS = 'milliomos-korabbi';
@@ -140,13 +144,17 @@ const VALASZ_KULCS = 'milliomos-korabbi-valasz';
 function valaszOlvas(tema) { try { return (JSON.parse(localStorage.getItem(VALASZ_KULCS) || '{}')[tema] || []); } catch { return []; } }
 function valaszMent(tema, lista) { try { const mind = JSON.parse(localStorage.getItem(VALASZ_KULCS) || '{}'); mind[tema] = (mind[tema] || []).concat(lista).slice(-200); localStorage.setItem(VALASZ_KULCS, JSON.stringify(mind)); } catch { /* nincs tárhely */ } }
 const tokenek = s => normal(s).split(' ').filter(w => w.length > 3);
-function hasonlo(x, y) { const A = new Set(tokenek(x)), B = tokenek(y); if (!A.size || !B.length) return false; const kozos = B.filter(w => A.has(w)).length; return kozos / (A.size + B.length - kozos) > 0.5; }
+function hasonlo(x, y) { const A = new Set(tokenek(x)), B = tokenek(y); if (!A.size || !B.length) return false; const kozos = B.filter(w => A.has(w)).length; return kozos / (A.size + B.length - kozos) > 0.7; }
 const keverTomb = t => { t = t.slice(); for (let i = t.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [t[i], t[k]] = [t[k], t[i]]; } return t; };
 
 function kerdesUtasitas(tema, szint, mar, korabbi) {
-  const politika = tema === 'Politika'
-    ? ' Politika témában a kérdések tárgyilagosak és tényalapúak legyenek (intézmények, történelem, nemzetközi szervezetek, ismert események); semmilyen pártos, véleményes vagy vitatott állítás ne szerepeljen.'
-    : '';
+  const politika = {
+    'Politika': ' Politika témában a kérdések tárgyilagosak és tényalapúak legyenek (intézmények, történelem, nemzetközi szervezetek, ismert események); semmilyen pártos, véleményes vagy vitatott állítás ne szerepeljen.',
+    'IT': ' Informatikai témában kerüld a gyorsan avuló adatokat (aktuális verziószámok, árak, piaci részesedés); tartós, ellenőrizhető tudásra kérdezz.',
+    'Történelem': ' Történelmi témában a pontos évszámok és események legyenek egyértelműen igazoltak; kerüld a vitatott történészi értelmezéseket.',
+    'Gasztronómia': ' Gasztronómiai témában kerüld az ízlésen vagy vitatott eredetmondákon alapuló kérdéseket; tényalapú, ellenőrizhető tudásra kérdezz.',
+    'Irodalom': ' Irodalmi témában a szerzők, művek és évszámok egyértelműen igazoltak legyenek; kerüld a vitatott értelmezéseket.',
+  }[tema] || '';
   const agak = keverTomb(ALTERULETEK[tema] || []).slice(0, 7);
   const tiltott = mar.concat(keverTomb(korabbi).slice(0, 60)).map(k => '"' + k.slice(0, 80) + '"');
   return `Készíts pontosan 7 magyar nyelvű feleletválasztós kvízkérdést a "${tema}" témában a "Legyen Ön is milliomos?" játékhoz.
@@ -177,16 +185,22 @@ async function aiKerdesek(ai, tema, jelez) {
   const osszes = [], tar = reszTar[tema] = reszTar[tema] || [], korabbi = korabbiOlvas(tema), korabbiValasz = new Set(valaszOlvas(tema));
   for (let r = 0; r < SZINTEK.length; r++) {
     if (tar[r]) { naplo(`${r + 1}. rész már megvan (előző próbálkozásból).`); osszes.push(...tar[r]); continue; }
-    let reszek = [], utolso;
+    let reszek = [], tartalek = [], utolso;
     for (let proba = 0; proba < 3 && reszek.length < 5; proba++) {
       jelez && jelez(r, proba);
       try {
-        const uj = kerdesLista(await aiHivas(ai, kerdesUtasitas(tema, SZINTEK[r], osszes.map(k => k.kerdes), korabbi), 2500))
-          .filter(k => !korabbi.some(q => hasonlo(q, k.kerdes)) && !korabbiValasz.has(normal(k.valaszok[0]))
-            && !osszes.concat(reszek).some(m => m.kerdes === k.kerdes || hasonlo(m.kerdes, k.kerdes) || normal(m.valaszok[0]) === normal(k.valaszok[0])));
-        reszek = reszek.concat(uj);
+        const jeloltek = kerdesLista(await aiHivas(ai, kerdesUtasitas(tema, SZINTEK[r], osszes.map(k => k.kerdes), korabbi), 2500));
+        for (const k of jeloltek) {
+          const mar = osszes.concat(reszek);
+          if (mar.some(m => m.kerdes === k.kerdes) || korabbi.includes(k.kerdes)) continue;            // pontos ismétlés: soha
+          const hasonloVolt = korabbi.some(q => hasonlo(q, k.kerdes)) || korabbiValasz.has(normal(k.valaszok[0]))
+            || mar.some(m => hasonlo(m.kerdes, k.kerdes) || normal(m.valaszok[0]) === normal(k.valaszok[0]));
+          (hasonloVolt ? tartalek : reszek).push(k);
+        }
       } catch (e) { utolso = e; naplo('Hiba: ' + e.message.slice(0, 220)); if (e.message === 'Megszakítva.' || (e.message.startsWith('AI hiba (4') && !e.atmeneti)) throw e; }
     }
+    // ha kevés az új kérdés, a csak "hasonló" jelöltekkel pótolunk, hogy a játék ne akadjon el
+    while (reszek.length < 5 && tartalek.length) { naplo('Kevés új kérdés – hasonló jelölttel pótolom.'); reszek.push(tartalek.shift()); }
     if (reszek.length < 5) throw new Error('Az AI nem adott elég használható kérdést a ' + (r + 1) + '. részhez (' + reszek.length + '/5).' + (utolso ? ' ' + utolso.message : ' A válasz nem a kért formátumú volt – próbálj nagyobb, okosabb modellt.'));
     tar[r] = reszek.slice(0, 5); osszes.push(...tar[r]);
   }

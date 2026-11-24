@@ -1,6 +1,6 @@
 'use strict';
 const $ = s => document.querySelector(s);
-const TEMAK = ['Film', 'Sport', 'Általános műveltség', 'Politika'];
+const TEMAK = ['Film', 'Sport', 'Általános műveltség', 'Politika', 'Gasztronómia', 'Irodalom', 'IT', 'Történelem'];
 const ALAP_SZINTEK = [5000, 10000, 20000, 50000, 100000, 200000, 300000, 500000, 800000, 1500000, 3000000, 5000000, 10000000, 20000000, 40000000];
 const BIZTOS = [4, 9]; // az 5. és a 10. kérdés garantált
 const BETUK = ['A', 'B', 'C', 'D'];
